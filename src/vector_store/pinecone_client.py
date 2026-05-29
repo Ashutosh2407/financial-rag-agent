@@ -4,10 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_index(name: str | None, dimension: int = 1536):
+def get_index(name: str | None, dimension: int = 384):
     pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
     index_name = name or os.environ.get("PINECONE_INDEX_NAME", "financial-rag")
-    if index_name not in pc.list_indexes():
+    existing = [idx.name for idx in pc.list_indexes()]
+    if index_name not in existing:
         pc.create_index(
             name = index_name,
             dimension=dimension,
