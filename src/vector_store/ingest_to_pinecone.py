@@ -30,3 +30,4 @@ index = get_index(name = "test-index")
 vector_store = PineconeVectorStore.from_documents(documents=split_chunks, embedding=embeddings,index_name="test-index")
 
 print(f"Uploaded {len(pages)} chunks.")
+print(f"Uploaded {len(split_chunks)} chunks.")
