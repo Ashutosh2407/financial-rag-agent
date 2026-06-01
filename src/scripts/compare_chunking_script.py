@@ -15,14 +15,14 @@ if __name__ == "__main__":
     ctx = get_chunking_context("fixed")
     #print(type(doc[0]))
     chunks = ctx.chunk(doc)
-    print(chunks[0].metadata)
     
     
-    # Open the file in write mode ('w')
-    # with open("fixed.txt", "w") as file:
-    #     file.write(f"\nTotal chunks: {len(chunks)}\n")
-    #     for i in range(len(chunks)):
-    #         file.write(f"\n--- Chunk {i} ---\n{chunks[i].page_content}")
+    
+    #Open the file in write mode ('w')
+    with open("fixed.txt", "w") as file:
+        file.write(f"\nTotal chunks: {len(chunks)}\n")
+        for i in range(len(chunks)):
+            file.write(f"\n--- Chunk {i} ---\n{chunks[i].page_content}")
 
     
     
