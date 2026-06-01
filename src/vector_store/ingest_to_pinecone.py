@@ -14,9 +14,9 @@ path = "/Users/ashutoshwagh/Desktop/projects/financial-rag-agent/data/goldman_sa
 #docs = load_all_docs(path)
 # loader = PyPDFLoader(path)
 # docs = loader.load()
-# index = get_index(name = "test-index")
-# index.delete(delete_all=True)
-# print("🗑️  Index cleared")
+index = get_index(name = "test-index")
+index.delete(delete_all=True)
+print("🗑️  Index cleared")
 
 pages, manifest = load_and_normalize()
 print(len(pages))
@@ -29,5 +29,5 @@ index = get_index(name = "test-index")
 
 vector_store = PineconeVectorStore.from_documents(documents=split_chunks, embedding=embeddings,index_name="test-index")
 
-print(f"Uploaded {len(pages)} chunks.")
+print(f"Uploaded {len(pages)} pages.")
 print(f"Uploaded {len(split_chunks)} chunks.")
