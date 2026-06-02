@@ -27,7 +27,7 @@ for q in QUESTIONS:
         {
             "chunk_id":i,
             "content_preview":doc.page_content[:300],
-            "metadat": doc.metadata,
+            "metadata": doc.metadata,
             "char_length": len(doc.page_content)
         }
     for i,doc in enumerate(docs)]
