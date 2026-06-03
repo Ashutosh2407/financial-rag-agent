@@ -73,7 +73,7 @@ async def query(request: QueryRequest)-> AnswerSchema:
             {"question":question, "context":context}
         )
     except Exception as e:
-        raise HTTPException(status_code=502,detail=f"LLM call failed: {exc}")
+        raise HTTPException(status_code=502,detail=f"LLM call failed: {e}")
 
     # 4. Attach Real source metadata
     result.sources.extend([

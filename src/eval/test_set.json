@@ -1,0 +1,226 @@
+{
+  "version": "1.0.0",
+  "created_date": "2026-05-26",
+  "questions": [
+    {
+      "id": "Q001",
+      "question": "What was Apple's Services segment revenue in FY2025 and how did its gross margin compare to the Products segment gross margin?",
+      "ground_truth": "For FY2025, Apple's Services segment revenue was $109.16 billion. Services gross margin was roughly 75%, which is more than double the gross margin of Apple's Products segment, which hovered around 36.8%.",
+      "category": "revenue_trends",
+      "expected_source": "10-K",
+      "target_companies": ["AAPL"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q002",
+      "question": "What specific US-China trade and tariff risks does Apple identify in its FY2025 10-K Risk Factors section?",
+      "ground_truth": "A significant majority of Apple's manufacturing is performed by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam. Restrictions on international trade, such as tariffs and other controls on imports or exports of goods, technology or data, can materially adversely affect the Company's business and supply chain.",
+      "category": "risk_disclosures",
+      "expected_source": "10-K",
+      "target_companies": ["AAPL"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q003",
+      "question": "How did iPhone net sales change between FY2024 and FY2025 and what does Apple cite as the primary driver?",
+      "ground_truth": "iPhone net sales increased during FY2025 compared to FY2024 due to higher net sales of Pro models.",
+      "category": "segment_commentary",
+      "expected_source": "10-K",
+      "target_companies": ["AAPL"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q004",
+      "question": "What does Apple's FY2025 MD&A say about the impact of foreign exchange headwinds on net sales growth?",
+      "ground_truth": "Changes in exchange rates, and in particular a strengthening of the U.S. dollar, will negatively affect the Company's net sales and gross margins as expressed in U.S. dollars.",
+      "category": "management_guidance",
+      "expected_source": "10-K",
+      "target_companies": ["AAPL"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q005",
+      "question": "What was JPMorgan's net interest income in FY2025 and how did it change year-over-year?",
+      "ground_truth": "Net interest income of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity.",
+      "category": "revenue_trends",
+      "expected_source": "10-K",
+      "target_companies": ["JPM"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q006",
+      "question": "What credit risk factors does JPMorgan identify in its FY2025 10-K related to its consumer lending portfolio?",
+      "ground_truth": "Credit risks include adverse changes in the financial condition of clients, customers and counterparties; potential losses due to declines in the value of collateral; and potential negative impacts from concentrations of credit risk with respect to clients, customers, counterparties and other market participants.",
+      "category": "risk_disclosures",
+      "expected_source": "10-K",
+      "target_companies": ["JPM"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q007",
+      "question": "How did JPMorgan's Commercial Banking segment loan growth compare to its Consumer and Community Banking segment in FY2025?",
+      "ground_truth": "In FY2025, JPMorgan's Commercial Banking average loans were essentially flat, rising to $220.6 billion from $220.3 billion (up ~0.1%). Consumer and Community Banking average loans rose to $578.9 billion from $573.2 billion (up ~1.0%), meaning CCB grew faster than Commercial Banking.",
+      "category": "segment_commentary",
+      "expected_source": "10-K",
+      "target_companies": ["JPM"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q008",
+      "question": "What does JPMorgan's FY2025 MD&A identify as the key drivers of its net income performance?",
+      "ground_truth": "JPMorgan's FY2025 MD&A says net income was driven by higher total revenue, offset by higher expenses and a higher provision for credit losses in Card Services and Wholesale. Notable items include the absence of the 2024 Visa shares gain and a 2025 reserve build related to the Apple Card transaction.",
+      "category": "management_guidance",
+      "expected_source": "10-K",
+      "target_companies": ["JPM"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q009",
+      "question": "What was Tesla's total revenue in FY2025 and what percentage came from automotive versus energy generation and services?",
+      "ground_truth": "In FY2025, Tesla recognized total revenues of $94.83 billion, a decrease of $2.86 billion compared to the prior year. Automotive represented 73.31% of revenue and energy generation and storage represented 13.4%.",
+      "category": "revenue_trends",
+      "expected_source": "10-K",
+      "target_companies": ["TSLA"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q010",
+      "question": "What production and supply chain risks does Tesla disclose in its FY2025 10-K related to its Gigafactory concentration?",
+      "ground_truth": "Gigafactory concentration creates risk that problems at a few large plants can disrupt significant output. Tesla cites factory ramp delays, battery cell and component issues, single-source supplier dependence, raw material shortages or cost spikes, and regional events such as earthquakes, floods, winter storms, or power outages.",
+      "category": "risk_disclosures",
+      "expected_source": "10-K",
+      "target_companies": ["TSLA"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q011",
+      "question": "How did Tesla's energy generation and storage segment revenue grow in FY2025 compared to FY2024?",
+      "ground_truth": "Tesla's energy generation and storage revenue increased by $2.685 billion in FY2025, rising from $10.086 billion in FY2024 to $12.771 billion in FY2025.",
+      "category": "segment_commentary",
+      "expected_source": "10-K",
+      "target_companies": ["TSLA"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q012",
+      "question": "What does Tesla's FY2025 MD&A say about gross margin pressure and what pricing decisions does it cite as the cause?",
+      "ground_truth": "Tesla's FY2025 MD&A says automotive gross margin fell to 17.8% from 18.4% in FY2024, mainly because regulatory credit revenue declined and automotive sales economics worsened.",
+      "category": "management_guidance",
+      "expected_source": "10-K",
+      "target_companies": ["TSLA"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q013",
+      "question": "What was Goldman Sachs' total net revenues in FY2025 and which business segment contributed the most?",
+      "ground_truth": "Goldman Sachs generated $49.9 billion in total net revenues in FY2025. The Global Banking and Markets segment contributed the most, generating $41.45 billion in net revenues, driven by record FICC and Equities financing revenues.",
+      "category": "revenue_trends",
+      "expected_source": "10-K",
+      "target_companies": ["GS"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q014",
+      "question": "What market risk and liquidity risk disclosures does Goldman Sachs make in its FY2025 10-K regarding its trading operations?",
+      "ground_truth": "Goldman Sachs says its trading operations face market risk from moves in interest rates, equities, currencies, commodities, credit spreads and volatility, managed with limits, stress tests and VaR. Trading operations also face liquidity risk because positions may become harder to fund or sell in stressed markets, addressed through liquidity reserves, funding management and stress testing.",
+      "category": "risk_disclosures",
+      "expected_source": "10-K",
+      "target_companies": ["GS"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q015",
+      "question": "How does Goldman Sachs describe its Global Banking and Markets segment performance in its FY2025 10-K?",
+      "ground_truth": "Goldman Sachs describes Global Banking and Markets as a strong FY2025 performer, highlighting leadership in M&A advisory, a leading position in FICC and Equities, and higher financing revenues. GBM benefited from strong client activity, wallet share gains, and record FICC and Equities financing net revenues of $11.4 billion. The segment generated $41.45 billion in total net revenues in FY2025.",
+      "category": "segment_commentary",
+      "expected_source": "10-K",
+      "target_companies": ["GS"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q016",
+      "question": "What does Goldman Sachs' FY2025 MD&A say about investment banking fee trends and the outlook for deal activity?",
+      "ground_truth": "Goldman Sachs says investment banking fees improved in FY2025, supported by stronger advisory and underwriting activity.",
+      "category": "management_guidance",
+      "expected_source": "10-K",
+      "target_companies": ["GS"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q017",
+      "question": "What was Microsoft's Intelligent Cloud segment revenue in FY2025 and what was its year-over-year growth rate?",
+      "ground_truth": "Microsoft's Intelligent Cloud segment revenue in FY2025 was $106.265 billion, up from $87.464 billion in FY2024, representing a year-over-year growth rate of approximately 21%.",
+      "category": "revenue_trends",
+      "expected_source": "10-K",
+      "target_companies": ["MSFT"],
+      "difficulty": "easy",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q018",
+      "question": "What AI and competitive risks does Microsoft identify in its FY2025 10-K given its investment in OpenAI and Azure AI services?",
+      "ground_truth": "Microsoft's 10-K says AI is expensive, fiercely competitive, and risky if products misfire or are misused. Microsoft also warns that partnerships like OpenAI may not deliver expected benefits, and that AI systems could produce harmful or inaccurate outputs that expose the company to reputational and legal risk.",
+      "category": "risk_disclosures",
+      "expected_source": "10-K",
+      "target_companies": ["MSFT"],
+      "difficulty": "hard",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q019",
+      "question": "How did Microsoft's Productivity and Business Processes segment perform in FY2025 and what products drove its growth?",
+      "ground_truth": "Microsoft's Productivity and Business Processes segment grew in FY2025, driven primarily by Microsoft 365 Commercial cloud revenue growth and LinkedIn revenue increases. Dynamics products and cloud services also contributed to segment growth.",
+      "category": "segment_commentary",
+      "expected_source": "10-K",
+      "target_companies": ["MSFT"],
+      "difficulty": "medium",
+      "requires_table_parsing": true,
+      "reference_period": "FY2025"
+    },
+    {
+      "id": "Q020",
+      "question": "What does Microsoft's FY2025 MD&A identify as the primary drivers of operating income growth across its three reportable segments?",
+      "ground_truth": "Operating income growth was driven by Microsoft 365 Commercial cloud in Productivity and Business Processes, Azure and cloud services in Intelligent Cloud, and Gaming plus Search and news advertising in More Personal Computing. Overall operating income rose with growth across all three segments.",
+      "category": "management_guidance",
+      "expected_source": "10-K",
+      "target_companies": ["MSFT"],
+      "difficulty": "medium",
+      "requires_table_parsing": false,
+      "reference_period": "FY2025"
+    }
+  ]
+}
