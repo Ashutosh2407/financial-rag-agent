@@ -7,7 +7,7 @@ from langchain_groq import ChatGroq
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel,Field
 from dotenv import load_dotenv
-from schemas import AnswerSchema
+from src.api.schemas import AnswerSchema, QueryRequest
 
 load_dotenv()
 
@@ -19,13 +19,6 @@ app = FastAPI()
 embeddings = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-MiniLM-L6-v2")
 vector_store = PineconeVectorStore(index_name="test-index", embedding=embeddings)
 retriever = vector_store.as_retriever(search_kwargs={"k":5})
-
-# ---------------------------------------------------------------------------
-# Request body
-# ---------------------------------------------------------------------------
-class QueryRequest(BaseModel):
-    question:str = Field(..., min_length=3)
-    top_k:int = Field(default=5,ge=1,le=20)
 
 # ---------------------------------------------------------------------------
 # LLM chain

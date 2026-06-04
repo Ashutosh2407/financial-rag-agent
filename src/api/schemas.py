@@ -38,3 +38,8 @@ class EvalQuestionSchema(BaseModel):
             if not c.strip():
                 raise ValueError("Company name cannot be blank.")
         return v
+
+
+class QueryRequest(BaseModel):
+    question:str = Field(..., min_length=3)
+    top_k:int = Field(default=5,ge=1,le=20)
