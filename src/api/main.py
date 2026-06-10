@@ -24,11 +24,13 @@ retriever = vector_store.as_retriever(search_kwargs={"k":5})
 # LLM chain
 # ---------------------------------------------------------------------------
 def build_llm_chain():
-    llm = ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0.0,
-        api_key=os.environ.get("GROQ_API_KEY")
+    llm = ChatOpenAI(
+        model="gpt-4o-mini",
+        api_key=os.environ.get("OPENAI_API_KEY"),
+        max_tokens = 4096
     )
+    
+    
     structured_llm = llm.with_structured_output(AnswerSchema)
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a helpful RAG assistant. Answer using ONLY the retrieved context."),
