@@ -1,4 +1,4 @@
-import os
+import os, re
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -8,8 +8,10 @@ from langchain_groq import ChatGroq
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel,Field
 from dotenv import load_dotenv
-from src.api.schemas import AnswerSchema, QueryRequest
+from src.api.schemas import AnswerSchema, QueryRequest, SourceSchema
 import logging
+import json
+from fastapi.responses import StreamingResponse
 
 load_dotenv()
 
@@ -62,8 +64,8 @@ async def root():
 async def check_health():
     return {"status": "ok"}
 
-@app.post("/query", response_model=AnswerSchema)
-async def query(request: QueryRequest)-> AnswerSchema:
+@app.post("/query")
+async def query(request: QueryRequest):
     question = request.question
     # 1. Real Pinecone retrieval
     docs = retriever.invoke(question)
@@ -74,34 +76,62 @@ async def query(request: QueryRequest)-> AnswerSchema:
         f"Year: {doc.metadata.get('year', '?')}\n{doc.page_content}"
         for i, doc in enumerate(docs)
     )
-    # 3. Generate structured answer
-    chain = build_llm_chain()
-    try:
-        with get_openai_callback() as cb:
-            result: AnswerSchema = await chain.ainvoke(
-                {"question":question, "context":context}
-            )
-        result.prompt_tokens = cb.prompt_tokens
-        result.completion_tokens = cb.completion_tokens
-        result.cost_usd = cb.total_cost
-        logger.info(f"Prompt tokens: {cb.prompt_tokens}")
-        logger.info(f"Completion tokens: {cb.completion_tokens}")
-        logger.info(f"Total tokens: {cb.total_tokens}")
-        logger.info(f"Cost: ${cb.total_cost:.6f}")
-    except Exception as e:
-        raise HTTPException(status_code=502,detail=f"LLM call failed: {e}")
-    
-    # 4. Attach Real source metadata
-    result.sources.extend([
+    #3. Generate metadata here 
+    sources = [
         {
             "chunk_id": i,
             "source": doc.metadata.get("source", "?"),
             "ticker": doc.metadata.get("ticker", "?"),
-            "year": doc.metadata.get("year", "?"),
+            "year": str(doc.metadata.get("year", "?")),
             "preview": doc.page_content[:200],
         }
     for i,doc in enumerate(docs)
-    ])
-    return result
+    ]
+    # 3. Create chain
+    chain = build_llm_chain()
 
+    #4. Streaming helper method
+    async def stream_response():
+        full_response = ""
+        try:
+            with get_openai_callback() as cb:
+                async for chunk in chain.astream({"question":question,"context": context}):
+                    token = chunk.content
+                    full_response+=token
+                    if "```json" not in full_response:
+                        yield f"data: {json.dumps({"type":'token', "content": token})}\n\n"
+        except Exception as e:
+            yield f"data:{json.dumps({'type':'error','detail': str(e)})}\n\n"
+            return
+
+        #5. Parse confidence and citations from the JSON block
+        #Default values for citations and confidence
+        confidence = 0.0
+        citations = []
+
+        match = re.search(r"```json\s*(\{.*?\})\s*```",full_response,re.DOTALL)
+        if match:
+            try:
+                meta = json.loads(match.group(1))
+                confidence = meta.get("confidence", 0)
+                citations = meta.get("citations", [])
+            except json.JSONDecodeError as e:
+                logger.info(f"Could not parse metadata: {e}")
+        
+
+        #Step 6: Build the final AnswerSchema and send it as one closing event 
+        final = AnswerSchema(**{
+            "answer": full_response.split("```json")[0].strip(),
+            "confidence": confidence,
+            "citations": citations,
+            "sources": sources,
+            "prompt_tokens": cb.prompt_tokens,
+            "completion_tokens": cb.completion_tokens,
+            "cost_usd": cb.total_cost
+        })
+        
+        yield f"data:{json.dumps({"type":"final", "data": final.model_dump()})}\n\n"
+        yield f"data:[DONE]\n\n"
     
+    #7.Return the stream to FastAPI
+    return StreamingResponse(stream_response(),media_type="text/event-stream")
