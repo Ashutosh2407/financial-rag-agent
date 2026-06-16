@@ -10,12 +10,13 @@ import os, json
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain_core.tracers.langchain import wait_for_all_tracers
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 from src.normalize_metadata import load_and_normalize
 from src.ingest import load_all_docs
 from src.chunking import FinanceSectionChunker,get_chunking_context
 from dotenv import load_dotenv
 from src.retriever import Retriever
-from src.api.main import build_llm_chain
 from src.api.schemas import AnswerSchema,EvalQuestionSchema
 import asyncio
 import logging
@@ -37,10 +38,23 @@ split_chunks = ctx.chunk(pages)
 
 retriever = Retriever(docs=split_chunks, embeddings= HuggingFaceEmbeddings(model = "sentence-transformers/all-MiniLM-L6-v2"))
 
+def build_llm_chain_to_generate_answer():
+    llm = ChatOpenAI(
+        model="gpt-4o-mini",
+        api_key=os.environ.get("OPENAI_API_KEY"),
+        max_tokens = 4096
+    )
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", """You are a helpful RAG assistant. Answer using ONLY the retrieved context."""),
+        ("human","Question:{question}\n\nContext:\n{context}\n\nProvide a structured answer.")]
+    )
+    structured_llm = llm.with_structured_output(AnswerSchema)
+    return prompt | structured_llm
+
+
 
 MAX_CONTEXT_CHAR = 4000
 async def get_answer(questions: EvalQuestionSchema, strategy:str):
-    RESULTS = []
     for item in questions:
         question = item["question"]
         
@@ -51,6 +65,8 @@ async def get_answer(questions: EvalQuestionSchema, strategy:str):
             active_retriever = retriever.get_bm25_sparse_retriver()
         elif strategy == "hybrid":
             active_retriever = retriever.get_ensemble_retiever()
+        elif strategy == "compression":
+            active_retriever = retriever.get_contextual_compression_retriever()
         else:
             print("Please input a valid retrieval strategy.")
             break
@@ -66,16 +82,16 @@ async def get_answer(questions: EvalQuestionSchema, strategy:str):
         )
         context = context[:MAX_CONTEXT_CHAR]
         #Generate Structured Answer
-        chain = build_llm_chain()
+        chain = build_llm_chain_to_generate_answer()
         try:
             result= await chain.ainvoke(
                 {"question":question, "context":context}
             )
+            print(result)
         except Exception as e:
             raise ValueError(f"Could not generate answer for {question}.")
         
-        RESULTS.append(
-            {
+        row = {
                 "strategy":strategy,
                 "question":question,
                 "answer":result.answer,
@@ -83,20 +99,28 @@ async def get_answer(questions: EvalQuestionSchema, strategy:str):
                 "contexts": [d.page_content for d in docs],
                 "category": item["category"],
                 "expected_source": item["expected_source"],
-                "actual_sources": result.sources,
+                "actual_sources": [s.model_dump() for s in result.sources],
                 "target_companies": item["target_companies"],
                 "reference_period": item["reference_period"],
                 "citations": result.citations,
             }
-        )
-        #break
-        #time.sleep(5)
-    with open(f"src/eval/datasets/eval_dataset_{strategy}.json","w") as f:
-        json.dump(RESULTS,f, indent=2)
+        
+        
+        
+        # with open(f"src/eval/datasets/eval_dataset_{strategy}.json","a+") as f:
+        #     data = json.load(f)
+        #     data.append(row)
+        #     f.seek(0)
+        #     json.dump(data,f, indent=2)
+        with open(f"src/eval/datasets/eval_dataset_{strategy}.json", "a") as f:
+            f.write(json.dumps(row) + "\n")
+        time.sleep(5)
 
 #result_sparse = asyncio.run(get_answer(test_set["questions"],strategy="sparse"))
 
 #result_hybrid = asyncio.run(get_answer(test_set["questions"],strategy="hybrid"))
+
+result_compression = asyncio.run(get_answer(test_set["questions"],strategy="compression"))
 
 
 

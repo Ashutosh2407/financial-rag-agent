@@ -1,0 +1,105 @@
+import streamlit as st
+import pandas as pd
+import requests
+import plotly.express as px
+import time
+import os
+import json
+from dotenv import load_dotenv
+from langsmith import Client
+
+load_dotenv()
+
+st.set_page_config(page_title="Financial RAG assistant",page_icon="📊", layout="wide")
+st.title("📊 Financial Document Intelligence Assistant")
+
+
+#RAGAS benchmark
+with st.expander("📈 Ragas Benchmark"):
+    df_eval = pd.read_csv("src/eval/results.csv")
+    df_agg = df_eval.groupby("strategy")[["faithfulness", "answer_relevance", "context_precision"]].mean().reset_index()
+    strategy_order = ["dense", "sparse", "hybrid", "compression"]
+    df_agg["strategy"] = pd.Categorical(df_agg["strategy"], categories=strategy_order, ordered=True)
+    df_agg = df_agg.sort_values("strategy")
+    col_table, col_chart = st.columns([1, 2])
+    with col_table:
+        st.dataframe(df_agg.round(2).set_index("strategy"), use_container_width=True)
+    with col_chart:
+        fig = px.line(df_agg,x="strategy", y="faithfulness",markers=True, text="faithfulness")
+        fig.update_traces(
+            line = dict(color="#01696f", width=3),
+            marker=dict(size=12, color="#01696f"),
+            texttemplate="%{text:.2f}",
+            textposition="top center"
+        )
+        fig.update_layout(
+            height=350,
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            xaxis=dict(title="Retrieval Strategy", tickangle=0, showgrid=False),
+            yaxis=dict(title="Faithfulness Score", range=[0, 1.1], gridcolor="#e5e5e5"),
+            font=dict(family="sans-serif", size=13),
+            margin=dict(t=20, b=20)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    
+st.divider()
+#Question and Answer
+
+question = st.text_input(
+    label="🔍 Ask a question:",
+    placeholder="What were JPMorgan's key risk factors in 2025?",
+    max_chars=200
+)
+
+if st.button("Ask") and question:
+    col_answer, col_evidence = st.columns([2,1])
+    full_payload = None
+    with col_answer:
+        st.subheader("💬 Answer")
+
+        with requests.post(os.environ.get("BASE_API_URL","http://localhost:8000/query"),
+                json={"question": str(question),"top_k":5},
+                stream=True
+            ) as response:
+            full_answer = ""
+            stream_box = st.empty()
+            buffer = ""
+            for chunk in response.iter_content(chunk_size=None):
+                if chunk:
+                    buffer+= chunk.decode("utf-8")
+                    
+                    while "\n\n" in buffer:
+                        message, buffer = buffer.split("\n\n",1)
+
+                        if message.startswith("data: "):
+                            raw = message[len("data: "):]
+                            try:
+                                payload = json.loads(raw)
+                                if payload.get("type") == "token":
+                                    full_answer += payload.get("content","")
+                                    stream_box.markdown(full_answer + "▌")
+                            except json.JSONDecodeError as e:
+                                pass
+            if buffer.strip() and buffer.startswith("data: "):
+                raw = buffer[len("data: "):]
+                try:
+                    payload = json.loads(raw)
+                    if payload.get("type") == "final":
+                        stream_box.markdown(full_answer)
+                        full_payload = payload
+                        print("FINAL PAYLOAD (flushed):", full_payload)
+                except json.JSONDecodeError:
+                    pass
+
+    # st.caption(
+    #         f"⏱ Confidence: {full_payload['confidence']:.2f}  |  "
+    #         f"💰 Cost: ${full_payload['cost_usd']:.5f}  |  "
+    #         f"🔢 Tokens: {full_payload['prompt_tokens']} in / {full_payload['completion_tokens']} out"
+    #     )
+
+    # if full_payload.get("citations"):
+    #         with st.expander("📎 Citations"):
+    #             for c in full_payload["citations"]:
+    #                 st.write(f"- {c}")

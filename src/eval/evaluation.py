@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-dataset_dict = load_dataset("json", data_files="src/eval/datasets/eval_dataset_hybrid.json")
+dataset_dict = load_dataset("json", data_files="src/eval/datasets/eval_dataset_compression.json")
 dataset_intermediate = dataset_dict["train"]
 dataset = [dict(row) for row in dataset_intermediate]
 
