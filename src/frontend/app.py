@@ -69,10 +69,8 @@ if st.button("Ask") and question:
             for chunk in response.iter_content(chunk_size=None):
                 if chunk:
                     buffer+= chunk.decode("utf-8")
-                    
                     while "\n\n" in buffer:
                         message, buffer = buffer.split("\n\n",1)
-
                         if message.startswith("data:"):
                             raw = message[len("data:"):].strip()
                             try:
@@ -84,7 +82,6 @@ if st.button("Ask") and question:
                                     stream_box.markdown(full_answer)
                                     full_payload = payload.get("data")
                                     #print("FINAL:", full_payload)
-
                             except json.JSONDecodeError as e:
                                 pass
             
@@ -95,7 +92,17 @@ if st.button("Ask") and question:
             f"🔢 Tokens: {full_payload['prompt_tokens']} in / {full_payload['completion_tokens']} out"
         )
 
-    if full_payload.get("citations"):
-            with st.expander("📎 Citations"):
-                for c in full_payload["citations"]:
-                    st.write(f"- {c}")
+    cited_chunks = []
+    for citation in full_payload["citations"]:
+        chunk_num = int(citation.replace('[Chunk ',"").replace(']',""))
+        
+        match = next((s for s in full_payload['sources'] if s["chunk_id"]==chunk_num),None)
+        if match:
+            cited_chunks.append(match)
+
+    with col_evidence:
+        st.subheader("📚 Sources")
+        for s in cited_chunks:
+            st.markdown(f"**{s['ticker']}** · {s['year'][:4]}")
+            st.caption(s["preview"][:200] + "...")
+            st.divider()

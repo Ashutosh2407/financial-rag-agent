@@ -44,8 +44,8 @@ def build_llm_chain():
         At the end of the end of your answer, OUTPUT a json block (and nothing after it) in this exact format:
          ```json
          {{
-            "confidence":0.92,
-            "citations":["[Chunk 0]","[Chunk 1]"]
+            "confidence":<float between 0 and 1 reflecting the confidence>,
+            "citations":["[Chunk 0]","[Chunk 1]"] //replace with the actual chunk numbers
          }}
          ```
          """),
