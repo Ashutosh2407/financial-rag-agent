@@ -73,33 +73,29 @@ if st.button("Ask") and question:
                     while "\n\n" in buffer:
                         message, buffer = buffer.split("\n\n",1)
 
-                        if message.startswith("data: "):
-                            raw = message[len("data: "):]
+                        if message.startswith("data:"):
+                            raw = message[len("data:"):].strip()
                             try:
                                 payload = json.loads(raw)
                                 if payload.get("type") == "token":
                                     full_answer += payload.get("content","")
                                     stream_box.markdown(full_answer + "▌")
+                                elif payload.get("type") == "final":
+                                    stream_box.markdown(full_answer)
+                                    full_payload = payload.get("data")
+                                    #print("FINAL:", full_payload)
+
                             except json.JSONDecodeError as e:
                                 pass
-            if buffer.strip() and buffer.startswith("data: "):
-                raw = buffer[len("data: "):]
-                try:
-                    payload = json.loads(raw)
-                    if payload.get("type") == "final":
-                        stream_box.markdown(full_answer)
-                        full_payload = payload
-                        print("FINAL PAYLOAD (flushed):", full_payload)
-                except json.JSONDecodeError:
-                    pass
+            
 
-    # st.caption(
-    #         f"⏱ Confidence: {full_payload['confidence']:.2f}  |  "
-    #         f"💰 Cost: ${full_payload['cost_usd']:.5f}  |  "
-    #         f"🔢 Tokens: {full_payload['prompt_tokens']} in / {full_payload['completion_tokens']} out"
-    #     )
+    st.caption(
+            f"⏱ Confidence: {full_payload['confidence']:.2f}  |  "
+            f"💰 Cost: ${full_payload['cost_usd']:.5f}  |  "
+            f"🔢 Tokens: {full_payload['prompt_tokens']} in / {full_payload['completion_tokens']} out"
+        )
 
-    # if full_payload.get("citations"):
-    #         with st.expander("📎 Citations"):
-    #             for c in full_payload["citations"]:
-    #                 st.write(f"- {c}")
+    if full_payload.get("citations"):
+            with st.expander("📎 Citations"):
+                for c in full_payload["citations"]:
+                    st.write(f"- {c}")
