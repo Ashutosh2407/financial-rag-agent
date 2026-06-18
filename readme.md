@@ -26,3 +26,4 @@ grounded, cited answers from a structured corpus of SEC filings.
 | Hybrid (BM25 + Dense) |  0.78        | 0.81             | 0.45              |
 | Compresession (rerank)|  0.68        | 0.87             | 0.62              |
 
+🎥 [Demo](https://github.com/user-attachments/assets/c665e652-9e1a-47b8-9229-7e61b129ca35)
