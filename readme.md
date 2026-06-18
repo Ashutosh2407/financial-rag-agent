@@ -27,3 +27,4 @@ grounded, cited answers from a structured corpus of SEC filings.
 | Compresession (rerank)|  0.68        | 0.87             | 0.62              |
 
 🎥 [Demo](https://github.com/user-attachments/assets/c665e652-9e1a-47b8-9229-7e61b129ca35)
+<video src="https://github.com/user-attachments/assets/c665e652-9e1a-47b8-9229-7e61b129ca35" autoplay loop muted playsinline></video>
