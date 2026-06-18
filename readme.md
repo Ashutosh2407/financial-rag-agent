@@ -25,4 +25,4 @@ grounded, cited answers from a structured corpus of SEC filings.
 | sparse (BM25)         |  0.7         | 0.77             | 0.44              | 
 | Hybrid BM25 + Dense   |  0.78        | 0.81             | 0.45              |
 | Compresession (rerank)|  0.68        | 0.87             | 0.62              |
-------------------------------------------------------------------------------+
+
