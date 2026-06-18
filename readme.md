@@ -18,7 +18,7 @@ grounded, cited answers from a structured corpus of SEC filings.
 ## Day 4 Retrieval Test Results
 ![Langchain Dashboard](langchaindashboard.png)
 
-##Retrieval Strategy Benchmark
+## Retrieval Strategy Benchmark
 | Strategy              | Faithfulness | Answer Relevance | Context Precision |
 | -------------------   | ------------ | ---------------- | ----------------- |
 | Dense (Pinecone)      |  0.44        | 0.62             | 0.48              |
