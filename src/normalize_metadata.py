@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader
-from src.corpus_config import CORPUS
+from src.corpus_config import CORPUS_10K,CORPUS_INTERNAL_RESEARCH,CORPUS_EARNINGS_TRANSCRIPT
 from src.ingest import load_all_docs, DIR_PATH
 import logging
 import time
@@ -12,11 +12,11 @@ def build_chunk_id(meta:dict,page:str) -> str:
     quarter = f"_{meta["quarter"]}" if meta["quarter"] else ""
     return f"{meta["ticker"]}_{meta["filing_type"].replace('-','').upper()}_{meta['year']}{quarter}_p{page}"
 
-def load_and_normalize()->list[dict]:
+def load_and_normalize(corpus)->list[dict]:
     all_pages = []
     manifest_entries = []
     
-    for doc_meta in CORPUS:
+    for doc_meta in corpus:
         loader = PyPDFLoader(doc_meta["local_path"])
         pages = loader.load()
 
@@ -44,7 +44,7 @@ def load_and_normalize()->list[dict]:
 
     return all_pages,manifest_entries
 
-def save_manifest(entries:list[dict], path="manifest.json"):
+def save_manifest(entries:list[dict], path="src/manifest_internal_research.json"):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path,"w") as f:
         json.dump(entries,f,indent = 2)
@@ -71,15 +71,15 @@ def inspect_10k_chunks(chunks, ticker="JPM", n=5):
 
 if __name__ == "__main__":
     start = time.time()
-    chunks, manifest = load_and_normalize()
+    pages, manifest = load_and_normalize()
     save_manifest(manifest)
-    print(f"Total chunks loaded: {len(chunks)}")
+    print(f"Total pages loaded: {len(pages)}")
     end = time.time()
-    # Inspect first chunk metadata
-    print("\n--- Sample chunk metadata ---")
-    print(json.dumps(chunks[0].metadata, indent=2))
+    # Inspect first page metadata
+    print("\n--- Sample page metadata ---")
+    print(json.dumps(pages[0].metadata, indent=2))
     logger.info(f"Time used: {end-start}")
-    logger.info("INSPECTING 10-K CHUNKS")
-    inspect_10k_chunks(chunks, ticker="JPM", n=5)
+    #logger.info("INSPECTING 10-K PAGES")
+    #inspect_10k_chunks(pages, ticker="JPM", n=5)
 
     

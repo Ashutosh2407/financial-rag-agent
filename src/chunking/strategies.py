@@ -48,7 +48,7 @@ class FinanceSectionChunker(BaseChunker):
             separators=["\n\n", "\n", ". ", " ", ""]
         )
     
-    def split(self,docs: list[Document])-> list[Document]:
+    def split(self,docs):
         result = []
         for doc in docs:
             raw_sections = _SECTION_PATTERN.split(doc.page_content)

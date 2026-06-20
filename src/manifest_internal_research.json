@@ -1,0 +1,42 @@
+[
+  {
+    "ticker": "GS",
+    "company": "Goldman Sachs",
+    "filing_type": "Internal Research",
+    "quarter": "",
+    "year": 2025,
+    "source_url": "",
+    "total_pages": 77,
+    "chunks_loaded": 77
+  },
+  {
+    "ticker": "JPM",
+    "company": "JP Morgan Chase",
+    "filing_type": "Internal Research",
+    "quarter": "",
+    "year": 2020,
+    "source_url": "",
+    "total_pages": 67,
+    "chunks_loaded": 67
+  },
+  {
+    "ticker": "",
+    "company": "",
+    "filing_type": "Internal Research",
+    "quarter": "",
+    "year": 2026,
+    "source_url": "",
+    "total_pages": 71,
+    "chunks_loaded": 71
+  },
+  {
+    "ticker": "",
+    "company": "",
+    "filing_type": "Internal Research",
+    "quarter": "",
+    "year": 2026,
+    "source_url": "",
+    "total_pages": 54,
+    "chunks_loaded": 54
+  }
+]
