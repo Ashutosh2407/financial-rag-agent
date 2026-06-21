@@ -2,7 +2,6 @@ import weaviate
 from tqdm import tqdm
 from weaviate.collections.collection import Collection
 from weaviate.classes.config import Configure,Property,DataType
-from weaviate.classes.query import Filter
 from langchain_huggingface import HuggingFaceEmbeddings
 from src.normalize_metadata import load_and_normalize
 from src.chunking import get_chunking_context
@@ -118,16 +117,11 @@ def ingest_to_weaviate(db: Collection,chunks, doc_type):
 if __name__ == "__main__":
     try:
         client = weaviate.connect_to_local()
-        collection = client.collections.get("EarningsTranscript")
-        collection.data.delete_many(
-            where= Filter.by_property("filing_type").equal("Earnings Call Transcript")
-        )
         create_schema(client=client)
     except Exception as e:
         print(f"Exception: {e}")
         exit(1)
-    #corpuses = [CORPUS_10K,CORPUS_INTERNAL_RESEARCH,CORPUS_EARNINGS_TRANSCRIPT]
-    corpuses = [CORPUS_EARNINGS_TRANSCRIPT]
+    corpuses = [CORPUS_10K,CORPUS_INTERNAL_RESEARCH,CORPUS_EARNINGS_TRANSCRIPT]
     for corpus in corpuses:
         pages, manifest = load_and_normalize(corpus)
         chunks = chunk_docs(pages= pages, strategy="section")
