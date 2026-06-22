@@ -1,3 +1,5 @@
+#Metadata filtering
+
 import weaviate
 from tqdm import tqdm
 from weaviate.collections.collection import Collection

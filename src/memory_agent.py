@@ -13,6 +13,10 @@ class ConversationState(TypedDict):
     current_query:str   #rewritten query for follow ups
 
 def retrieve_context(state:ConversationState)-> dict:
+    """
+    Takes the contextualized queryfrom contextualize_query and 
+    retrieves appropriate document chunks from weaviate.
+    """
     query = state["current_query"]
     results = query_all(query=query)
     chunks = [r.properties.get("text") for r in results]
@@ -26,6 +30,10 @@ FOLLOWUP_RE = re.compile(
 )
 
 def contextualize_query(state:ConversationState)-> dict:
+    """
+    Adds previous messages/queries to the latest query for 
+    context if it is a follow up question.
+    """
     messages = state["messages"]
     latest_message = messages[-1].content.strip()
     #Find the last AI reply
@@ -45,6 +53,9 @@ def contextualize_query(state:ConversationState)-> dict:
 
 
 def build_graph():
+    """
+    START -> CONTEXTUALIZE -> RETRIEVE -> END
+    """
     builder = StateGraph(state_schema=ConversationState)
 
     builder.add_node("contextualize", contextualize_query)
@@ -58,7 +69,7 @@ def build_graph():
 
 graph = build_graph()
 
-def chat(session_id:str, user_messge:str) -> dict:
+def chat(session_id:str, user_message:str) -> dict:
     config = {
         "configurable":{
             "thread_id": session_id
@@ -67,16 +78,15 @@ def chat(session_id:str, user_messge:str) -> dict:
 
     result = graph.invoke(
         {
-            "messages": [HumanMessage(content=user_messge)],
+            "messages": [HumanMessage(content=user_message)],
             "retrieved_context":"",
-            "current_query": user_messge
-
+            "current_query": user_message
         },
         config = config
     )
 
     return {
-        "query": user_messge,
+        "query": user_message,
         "resolved_query": result["current_query"],
         "retrieved_context": result["retrieved_context"]
     }
