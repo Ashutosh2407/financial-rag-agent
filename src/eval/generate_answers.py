@@ -114,7 +114,6 @@ async def get_answer(questions: EvalQuestionSchema, strategy:str):
 
 
 async def get_answer_weaviate(questions: EvalQuestionSchema,strategy:str):
-    i=1
     for item in questions:
         question = item["question"]
         chunk_results = query_all(query =question,limit=2)
@@ -151,8 +150,7 @@ async def get_answer_weaviate(questions: EvalQuestionSchema,strategy:str):
             }
         with open(f"src/eval/datasets/eval_dataset_{strategy}.json", "a") as f:
             f.write(json.dumps(row) + "\n")
-        print(f"Question {i} done.")
-        i+=1
+        
         time.sleep(5)
 
     
