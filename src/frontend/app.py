@@ -46,6 +46,12 @@ with st.expander("📈 Ragas Benchmark"):
 
     
 st.divider()
+
+#Select Database Dropdown
+st.header("Filters")
+db = st.selectbox("Database",["Weaviate", "Pinecone"],width=200)
+
+
 #Question and Answer
 
 question = st.text_input(
