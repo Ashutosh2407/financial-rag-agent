@@ -67,7 +67,7 @@ if st.button("Ask") and question:
         st.subheader("💬 Answer")
 
         with requests.post(os.environ.get("BASE_API_URL","http://localhost:8000/query"),
-                json={"question": str(question),"top_k":5},
+                json={"question": str(question),"top_k":5,"db":db.lower()},
                 stream=True
             ) as response:
             full_answer = ""
