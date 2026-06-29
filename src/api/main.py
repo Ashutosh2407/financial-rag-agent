@@ -1,5 +1,6 @@
 import os, re
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_pinecone import PineconeVectorStore
@@ -9,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel,Field
 from dotenv import load_dotenv
 from src.api.schemas import AnswerSchema, QueryRequest, SourceSchema
+from src.weaviate.query import query_all
 import logging
 import json
 from fastapi.responses import StreamingResponse
@@ -69,7 +71,23 @@ async def check_health():
 async def query(request: QueryRequest):
     question = request.question
     # 1. Real Pinecone retrieval
-    docs = retriever.invoke(question)
+    if request.db == "pinecone":
+        docs = retriever.invoke(question)
+    else:
+        raw = query_all(question,limit=5,search_type="hybrid")
+        docs = [
+            Document(
+                page_content=obj.properties.get("text"),
+                metadata = {
+                    "ticker": obj.properties.get("ticker"),
+                    "year": obj.properties.get("year"),
+                    "quarter": obj.properties.get("quarter"),
+                    "filing_type": obj.properties.get("filing_type"),
+                    "sources": obj.properties.get("source"),
+                }
+            ) 
+            for obj in raw
+        ]
     # 2. Build context from your real chunks
     context = "\n\n".join(
         f"[Chunk {i}] Source: {doc.metadata.get('source', '?')} | "
