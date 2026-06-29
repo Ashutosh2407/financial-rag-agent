@@ -15,7 +15,7 @@ class Retriever():
         self.index_name = index_name
         self.k = k
 
-    def get_dense_retriver(self):
+    def get_dense_retriever(self):
         vectorstore = PineconeVectorStore(embedding=self.embeddings,index_name=self.index_name)
         retriever = vectorstore.as_retriever(search_kwargs={"k":self.k})
         return retriever
@@ -46,3 +46,6 @@ class Retriever():
         )
         return retriever
 
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+retriever_obj = Retriever(docs=[], embeddings=embeddings)
+retriever = retriever_obj.get_dense_retriever()

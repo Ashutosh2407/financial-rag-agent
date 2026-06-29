@@ -6,20 +6,28 @@ from langgraph.graph import StateGraph,START,END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import AIMessage, HumanMessage
 from src.weaviate.query import query_all
+from src.retriever import retriever
+
 
 class ConversationState(TypedDict):
     messages: Annotated[list,add_messages] #full chat history, append only
     retrieved_context: str #latest chunks from weaviate
     current_query:str   #rewritten query for follow ups
+    db:str #Database: Weaviate or Pinecone
 
 def retrieve_context(state:ConversationState)-> dict:
     """
-    Takes the contextualized queryfrom contextualize_query and 
+    Takes the contextualized query from contextualize_query and 
     retrieves appropriate document chunks from weaviate.
     """
     query = state["current_query"]
-    results = query_all(query=query)
-    chunks = [r.properties.get("text") for r in results]
+    db = state.get("db", "weaviate")
+    if db == "weaviate":
+        results = query_all(query=query)
+        chunks = [r.properties.get("text") for r in results]
+    else:
+        docs = retriever.invoke(query)
+        chunks = [d.page_content for d in docs]
     context = "\n---\n".join(chunks)
     return {"retrieved_context": context}
 
@@ -69,7 +77,7 @@ def build_graph():
 
 graph = build_graph()
 
-def chat(session_id:str, user_message:str) -> dict:
+def chat(session_id:str, user_message:str, db:str = "weaviate") -> dict:
     config = {
         "configurable":{
             "thread_id": session_id
@@ -80,7 +88,8 @@ def chat(session_id:str, user_message:str) -> dict:
         {
             "messages": [HumanMessage(content=user_message)],
             "retrieved_context":"",
-            "current_query": user_message
+            "current_query": user_message,
+            "db":db
         },
         config = config
     )
