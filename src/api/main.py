@@ -11,6 +11,7 @@ from pydantic import BaseModel,Field
 from dotenv import load_dotenv
 from src.api.schemas import AnswerSchema, QueryRequest, SourceSchema
 from src.weaviate.query import query_all
+from src.memory_agent import chat
 import logging
 import json
 from fastapi.responses import StreamingResponse
@@ -70,10 +71,17 @@ async def check_health():
 @app.post("/query")
 async def query(request: QueryRequest):
     question = request.question
-    # 1. Real Pinecone retrieval
+    memory_result = chat(session_id=request.thread_id,
+                         user_message=question,
+                         db = request.db)
+    context = memory_result["retrieved_context"]
+    question = memory_result["resolved_query"]
+
+    # 1. Real Pinecone retrieval for sources only
     if request.db == "pinecone":
         docs = retriever.invoke(question)
     else:
+    #2. Weaviate Retrieval for sources only
         raw = query_all(question,limit=5,search_type="hybrid")
         docs = [
             Document(
@@ -88,13 +96,16 @@ async def query(request: QueryRequest):
             ) 
             for obj in raw
         ]
+    
+
     # 2. Build context from your real chunks
-    context = "\n\n".join(
-        f"[Chunk {i}] Source: {doc.metadata.get('source', '?')} | "
-        f"Ticker: {doc.metadata.get('ticker', '?')} | "
-        f"Year: {doc.metadata.get('year', '?')}\n{doc.page_content}"
-        for i, doc in enumerate(docs)
-    )
+    # context = "\n\n".join(
+    #     f"[Chunk {i}] Source: {doc.metadata.get('source', '?')} | "
+    #     f"Ticker: {doc.metadata.get('ticker', '?')} | "
+    #     f"Year: {doc.metadata.get('year', '?')}\n{doc.page_content}"
+    #     for i, doc in enumerate(docs)
+    # )
+
     #3. Generate metadata here 
     sources = [
         {
