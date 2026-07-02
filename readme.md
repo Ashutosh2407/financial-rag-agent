@@ -30,5 +30,5 @@ grounded, cited answers from a structured corpus of SEC filings.
 ## Demo 1
 ![Demo](https://github.com/user-attachments/assets/e84c8cd8-b5ae-4bb0-a876-7037f83bc7e9)
 
-## Demo 2 : Multi turn chat
+## Demo 2 : Multi-turn chat
 ![Demo](https://github.com/user-attachments/assets/b9049608-6765-4678-a5e5-a405cfb4db9a)
