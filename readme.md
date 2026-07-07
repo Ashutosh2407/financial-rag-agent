@@ -27,6 +27,7 @@ grounded, cited answers from a structured corpus of SEC filings.
 | Compresession (rerank)|  0.68        | 0.87             | 0.62              |
 | Weaviate	            |  0.67	       | 0.72	            | 0.39              |
 
+## Langraph Graph
 ```mermaid
 flowchart TD
     __start__([<p>__start__</p>]):::first
