@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph,START,END
-from typing import Annotated, TypedDict, List
+from typing import Annotated, TypedDict, List, Literal
 from langchain_core.documents import Document
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools import TavilySearchResults
 from pydantic import BaseModel, Field
 from src.retriever import retriever
+from src.guardrails_node import input_guardrail,output_guardrail
 import asyncio
 import os,re
 from dotenv import load_dotenv
@@ -61,6 +62,8 @@ class AnswerState(TypedDict):
     current_query:str
     chunks: List[str]
     grade:float
+    blocked: bool
+    blocked_reason: str
 
 
 def retrieve(state: AnswerState)->dict:
@@ -97,6 +100,19 @@ def conditional_edge(state: AnswerState)-> str:
         print(f"[ROUTING] grade={score:.2f} → tavily (web search fallback)")
         return "tavily_node"
 
+def guardrail_wrapper(state: AnswerState, mode: Literal["input","output"])-> dict:
+    if mode == "input":
+        safe,reason = input_guardrail(state["current_query"])
+        if not safe:
+            return {"blocked":True, "blocked_reason": reason}
+        return {"blocked": False}
+    elif mode == "output":
+        text = "".join(state["answer"])
+        safe,reason = output_guardrail(answer = text)
+        if not safe:
+            return {"blocked":True, "blocked_reason": reason}      
+        return {"blocked": False}
+    raise ValueError(f"Unknown guardrails mode: {mode}")
 
 
 def tavily(state: AnswerState)->dict:
@@ -116,24 +132,37 @@ async def generator(state: AnswerState)->dict:
     result = []
     async for chunk in chain.astream({"question":state["current_query"],"context": state["retrieved_context"]}):
         result.append(chunk.content)
-    return {"answer": result}
+    return {"answer": "".join(result)}
 
 def build_graph():
     builder = StateGraph(state_schema = AnswerState)
     
+    builder.add_node("guardrails_input", lambda s: guardrail_wrapper(s,"input"))
+    builder.add_node("guardrails_output", lambda s: guardrail_wrapper(s,"output"))
     builder.add_node("retriever_node", retrieve)
     builder.add_node("grader_node",grader)
     builder.add_node("contextualize_node",contextualize)
     builder.add_node("generator_node", generator)
     builder.add_node("tavily_node", tavily)
 
-    builder.add_edge(START,"retriever_node")
+
+    builder.add_conditional_edges("guardrails_input",
+    lambda s: "blocked" if s.get("blocked") else "continue",
+    {"blocked": END, "continue":"retriever_node"}
+    )
+    
+    builder.add_conditional_edges("guardrails_output",
+    lambda s: "blocked" if s.get("blocked") else "ok",
+    {"blocked": END, "ok":END}
+    )
+
+    builder.add_edge(START,"guardrails_input")
     builder.add_edge("retriever_node", "grader_node")
     builder.add_conditional_edges("grader_node", conditional_edge)
     builder.add_edge("tavily_node", "contextualize_node")
     builder.add_edge("contextualize_node","generator_node")
-    builder.add_edge("generator_node", END)
-
+    builder.add_edge("generator_node", "guardrails_output")
+    builder.add_edge("guardrails_output", END)
     return builder.compile()
 
 graph = build_graph()
