@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader
 from src.corpus_config import CORPUS_10K,CORPUS_INTERNAL_RESEARCH,CORPUS_EARNINGS_TRANSCRIPT
-from src.ingest import load_all_docs, DIR_PATH
+from src.ingest import DIR_PATH
 import logging
 import time
 

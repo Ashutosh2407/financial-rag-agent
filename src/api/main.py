@@ -25,16 +25,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-# ---------------------------------------------------------------------------
+# -------------
 # Retriever
-# ---------------------------------------------------------------------------
+# -------------
 embeddings = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-MiniLM-L6-v2")
 vector_store = PineconeVectorStore(index_name="test-index", embedding=embeddings)
 retriever = vector_store.as_retriever(search_kwargs={"k":5})
 
-# ---------------------------------------------------------------------------
+# ------------
 # LLM chain
-# ---------------------------------------------------------------------------
+# ------------
 def build_llm_chain():
     llm = ChatOpenAI(
         model="gpt-4o-mini",
@@ -77,7 +77,7 @@ async def query(request: QueryRequest):
     context = memory_result["retrieved_context"]
     question = memory_result["resolved_query"]
 
-    # 1. Real Pinecone retrieval for sources only
+    #1. Pinecone retrieval for sources only
     if request.db == "pinecone":
         docs = retriever.invoke(question)
     else:

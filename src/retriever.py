@@ -20,7 +20,7 @@ class Retriever():
         retriever = vectorstore.as_retriever(search_kwargs={"k":self.k})
         return retriever
 
-    def get_bm25_sparse_retriver(self):
+    def get_bm25_sparse_retriever(self):
         retriever = BM25Retriever.from_documents(self.docs)
         retriever.k = self.k
         return retriever

@@ -1,18 +1,21 @@
+import asyncio,os,re
 from langgraph.graph import StateGraph,START,END
+from langgraph.types import Command, interrupt
 from typing import Annotated, TypedDict, List, Literal
+from pydantic import BaseModel, Field
 from langchain_core.documents import Document
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools import TavilySearchResults
-from pydantic import BaseModel, Field
 from src.retriever import retriever
-from src.guardrails_node import input_guardrail,output_guardrail
-import asyncio
-import os,re
+from src.langraph.guardrails_node import input_guardrail,output_guardrail
+from src.langraph.hallucination_checker import check_grounding
 from dotenv import load_dotenv
 
 load_dotenv()
+
+CONFIDENCE_THRESHOLD = 1
 
 def build_llm_chain():
     llm = ChatOpenAI(
@@ -36,8 +39,7 @@ def build_llm_chain():
         ("human","Question:{question}\n\nContext:\n{context}\n\nProvide a structured answer."),
     ])
     return prompt | llm
-
-
+ 
 class GradeDocuments(BaseModel):
     score: float = Field(description="Relevance score from 0 to 1",ge=0,le=1)
 
@@ -55,16 +57,17 @@ def grader_llm_chain():
         ("human","Question: {question}\n\nDocument:\n{document}\n\nRate relevance.")])
     return prompt | structured_llm
 
-
 class AnswerState(TypedDict):
     answer: str
     retrieved_context: str 
     current_query:str
     chunks: List[str]
     grade:float
+    confidence: float
     blocked: bool
     blocked_reason: str
-
+    approved: bool
+    gen_count: int = 0
 
 def retrieve(state: AnswerState)->dict:
     query = state["current_query"]
@@ -114,8 +117,8 @@ def guardrail_wrapper(state: AnswerState, mode: Literal["input","output"])-> dic
         return {"blocked": False}
     raise ValueError(f"Unknown guardrails mode: {mode}")
 
-
 def tavily(state: AnswerState)->dict:
+    print("Tavily search begins...")
     query = state["current_query"]
     tool = TavilySearchResults(
         api_key = os.environ.get("TAVILY_API_KEY"),
@@ -132,7 +135,47 @@ async def generator(state: AnswerState)->dict:
     result = []
     async for chunk in chain.astream({"question":state["current_query"],"context": state["retrieved_context"]}):
         result.append(chunk.content)
-    return {"answer": "".join(result)}
+    return {"answer": "".join(result),"gen_count": state.get("gen_count",0)+1}
+
+def hallucination_check(state: AnswerState)->dict:
+    """Verify answer is grounded in retrieved chunks using an LLM-as-judge check."""
+    grounding_score,confidence_score=check_grounding(state["chunks"],state["answer"])
+    return {"confidence":confidence_score}
+
+def route_after_hallucination_check(state: AnswerState)->str:
+    if state["confidence"] < CONFIDENCE_THRESHOLD and state.get("gen_count",0) <2:
+        return "generator_node"
+    elif state["confidence"] < CONFIDENCE_THRESHOLD:
+        return "human_review_node"
+    return END
+
+def human_review(state:AnswerState)-> Command:
+    if state["confidence"] >= CONFIDENCE_THRESHOLD:
+        return Command(
+            update = AnswerState(answer=state["answer"],approved= True),
+            goto="guardrails_output"
+        )
+    else:
+        print("Interrupted.")
+        decision = interrupt({
+            "reason": "low_confidence",
+            "confidence": state["confidence"],
+            "query": state["current_query"],
+            "draft_answer": state["answer"],
+            "supporting_chunks": state["chunks"],
+        })
+        if decision == "approved":
+            answer = state["answer"]
+            approved = True
+            next_node =  "guardrails_output"
+        else:
+            answer = "Answer could not be found. Analyst rejects."
+            approved = False
+            next_node = END
+        return Command(
+            update=AnswerState(answer=answer,approved= approved),
+            goto=next_node
+        )
 
 def build_graph():
     builder = StateGraph(state_schema = AnswerState)
@@ -144,6 +187,9 @@ def build_graph():
     builder.add_node("contextualize_node",contextualize)
     builder.add_node("generator_node", generator)
     builder.add_node("tavily_node", tavily)
+    builder.add_node("hallucination_checker_node", hallucination_check)
+    builder.add_node("human_review_node", human_review)
+    
 
 
     builder.add_conditional_edges("guardrails_input",
@@ -161,12 +207,32 @@ def build_graph():
     builder.add_conditional_edges("grader_node", conditional_edge)
     builder.add_edge("tavily_node", "contextualize_node")
     builder.add_edge("contextualize_node","generator_node")
-    builder.add_edge("generator_node", "guardrails_output")
+    builder.add_edge("generator_node","hallucination_checker_node")
+    builder.add_conditional_edges("hallucination_checker_node",route_after_hallucination_check)
     builder.add_edge("guardrails_output", END)
-    return builder.compile()
+    return builder.compile(checkpointer=MemorySaver())
 
 graph = build_graph()
+config = {
+    "configurable":{
+        "thread_id": "test_run_1"
+    }
+}
 result = asyncio.run(
-    graph.ainvoke({"current_query": "What is the most sold product of apple in 2026?", "retrieved_context": "", "answer": [""]})
+    graph.ainvoke({"current_query": "When is apple i phone product launch?", 
+                   "retrieved_context": "", 
+                   "answer": [""]},
+                  config=config)
 )
-print(result)
+if "__interrupt__" in result:
+    payload = result["__interrupt__"][0].value  #dict passed to interrupt
+    print("Needs review:", payload)
+    verdict = input("approve? ")
+    final = asyncio.run(
+        graph.ainvoke(
+            Command(resume=verdict),
+            config=config
+        )
+    )
+    print("Final answer....\n")
+    print(final["answer"])

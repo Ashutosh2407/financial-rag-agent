@@ -15,7 +15,6 @@ embedding = HuggingFaceEmbeddings(
         model_name = "sentence-transformers/all-MiniLM-L6-v2"
     )
 
-
 def create_schema(client):
     #10-K
     if not client.collections.exists("SECFiling"):
@@ -65,8 +64,6 @@ def create_schema(client):
         )
         print("✅ PolicyDocument Schema created.")
 
-
-
 def load_docs(corpus):
     #load pages and add uniform metadata to them.
     pages,manifest = load_and_normalize(corpus=corpus)
@@ -76,9 +73,6 @@ def chunk_docs(pages,strategy):
     ctx = get_chunking_context(strategy = strategy)
     split_chunks = ctx.chunk(docs = pages)
     return split_chunks
-
-
-
 
 def ingest_to_weaviate(db: Collection,chunks, doc_type):   
     with db.batch.fixed_size(batch_size = 200) as batch:

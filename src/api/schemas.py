@@ -18,9 +18,6 @@ class AnswerSchema(BaseModel):
     completion_tokens: int = Field(ge=0.0)
     cost_usd: float = Field(ge=0.0)
 
-
-
-
 class EvalQuestionSchema(BaseModel):
     id:str = Field(...,pattern=r"^Q\d{3}$")
     question: str = Field(..., min_length=15, max_length=300)
@@ -51,7 +48,6 @@ class EvalQuestionSchema(BaseModel):
             if not c.strip():
                 raise ValueError("Company name cannot be blank.")
         return v
-
 
 class QueryRequest(BaseModel):
     question:str = Field(..., min_length=3)

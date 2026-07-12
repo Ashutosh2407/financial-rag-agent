@@ -22,7 +22,7 @@ collections = {
 
 model = SentenceTransformer("all-MiniLM-L6-v2") 
 
-#COhere Rerank
+#Cohere Rerank
 def rerank(query,results,top_n = 5):
     texts = [obj.properties.get("text","") for obj in results]
     response = co.rerank(

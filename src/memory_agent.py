@@ -18,7 +18,7 @@ class ConversationState(TypedDict):
 def retrieve_context(state:ConversationState)-> dict:
     """
     Takes the contextualized query from contextualize_query and 
-    retrieves appropriate document chunks from weaviate.
+    retrieves appropriate document chunks from weaviate/pinecone.
     """
     query = state["current_query"]
     db = state.get("db", "weaviate")

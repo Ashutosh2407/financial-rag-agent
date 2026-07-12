@@ -63,9 +63,9 @@ async def get_answer(questions: EvalQuestionSchema, strategy:str):
         
         if strategy == "dense":
             #Pinecone retrieval
-            active_retriever = retriever.get_dense_retriver()
+            active_retriever = retriever.get_dense_retriever()
         elif strategy == "sparse":
-            active_retriever = retriever.get_bm25_sparse_retriver()
+            active_retriever = retriever.get_bm25_sparse_retriever()
         elif strategy == "hybrid":
             active_retriever = retriever.get_ensemble_retiever()
         elif strategy == "compression":

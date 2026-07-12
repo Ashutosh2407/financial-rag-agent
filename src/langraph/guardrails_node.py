@@ -35,6 +35,7 @@ def input_guardrail(query:str) -> tuple[bool, str]:
     """
     Returns (is_safe, reason_if_blocked)
     """
+    #Check prompt injection.
     try:
         input_guard.validate(query)
     except Exception as e:
@@ -65,6 +66,7 @@ def output_guardrail(answer:str)-> tuple[bool,str]:
     Validates PII, then appends disclaimer.
     Returns (is_safe, final_answer_or_block_reason)
     """
+    #Check PII.
     try:
         output_guard.validate(answer)
     except Exception as e:
