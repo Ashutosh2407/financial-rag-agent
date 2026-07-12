@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CONFIDENCE_THRESHOLD = 0.75
+CONFIDENCE_THRESHOLD = 1
 
 def build_llm_chain():
     llm = ChatOpenAI(
@@ -67,7 +67,7 @@ class AnswerState(TypedDict):
     blocked: bool
     blocked_reason: str
     approved: bool
-    regenerated: bool = False
+    gen_count: int = 0
 
 def retrieve(state: AnswerState)->dict:
     query = state["current_query"]
@@ -135,7 +135,7 @@ async def generator(state: AnswerState)->dict:
     result = []
     async for chunk in chain.astream({"question":state["current_query"],"context": state["retrieved_context"]}):
         result.append(chunk.content)
-    return {"answer": "".join(result)}
+    return {"answer": "".join(result),"gen_count": state.get("gen_count",0)+1}
 
 def hallucination_check(state: AnswerState)->dict:
     """Verify answer is grounded in retrieved chunks using an LLM-as-judge check."""
@@ -143,16 +143,18 @@ def hallucination_check(state: AnswerState)->dict:
     return {"confidence":confidence_score}
 
 def route_after_hallucination_check(state: AnswerState)->str:
-    if state["confidence"] < CONFIDENCE_THRESHOLD and not state.get("regenerated",False):
-        state["regenerated"]=True
+    if state["confidence"] < CONFIDENCE_THRESHOLD and state.get("gen_count",0) <2:
         return "generator_node"
     elif state["confidence"] < CONFIDENCE_THRESHOLD:
         return "human_review_node"
     return END
 
-def human_review(state:AnswerState)-> dict:
+def human_review(state:AnswerState)-> Command:
     if state["confidence"] >= CONFIDENCE_THRESHOLD:
-        return {"approved": True}
+        return Command(
+            update = AnswerState(answer=state["answer"],approved= True),
+            goto="guardrails_output"
+        )
     else:
         print("Interrupted.")
         decision = interrupt({
@@ -162,15 +164,16 @@ def human_review(state:AnswerState)-> dict:
             "draft_answer": state["answer"],
             "supporting_chunks": state["chunks"],
         })
-        print(decision)
         if decision == "approved":
-            answer = decision["draft_answer"]
+            answer = state["answer"]
+            approved = True
             next_node =  "guardrails_output"
         else:
             answer = "Answer could not be found. Analyst rejects."
+            approved = False
             next_node = END
         return Command(
-            update=AnswerState(answer=answer),
+            update=AnswerState(answer=answer,approved= approved),
             goto=next_node
         )
 
@@ -216,7 +219,20 @@ config = {
     }
 }
 result = asyncio.run(
-    graph.ainvoke({"current_query": "When is apple i phone product launch?", "retrieved_context": "", "answer": [""]},
+    graph.ainvoke({"current_query": "When is apple i phone product launch?", 
+                   "retrieved_context": "", 
+                   "answer": [""]},
                   config=config)
 )
-print(result)
+if "__interrupt__" in result:
+    payload = result["__interrupt__"][0].value  #dict passed to interrupt
+    print("Needs review:", payload)
+    verdict = input("approve? ")
+    final = asyncio.run(
+        graph.ainvoke(
+            Command(resume=verdict),
+            config=config
+        )
+    )
+    print("Final answer....\n")
+    print(final["answer"])
