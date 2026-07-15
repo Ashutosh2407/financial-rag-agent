@@ -8,8 +8,9 @@ from langchain_groq import ChatGroq
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel,Field
 from dotenv import load_dotenv
-from src.langraph.test_graph import graph
-from src.api.schemas import AnswerSchema, QueryRequest, SourceSchema
+from src.langraph.test_graph import graph, CONFIDENCE_THRESHOLD
+from langgraph.types import Command
+from src.api.schemas import AnswerSchema, QueryRequest, SourceSchema, ResumeRequest
 from src.weaviate.query import query_all
 from src.langraph.memory_agent import chat
 import logging
@@ -106,20 +107,24 @@ async def query(request: QueryRequest):
             with get_openai_callback() as cb:
                 async for stream_type,event_data in graph.astream(initial_state, 
                                                                   config=config,
-                                                                  stream_mode=["messages","updates"],
-                                                                  subgraphs=True):
+                                                                  stream_mode=["updates"],
+                                                                  ):
+                    
                     if stream_type=="updates":
-                        final_state.update(event_data)
-                    if stream_type == "updates" and "__interrupt__" in event_data:
-                        payload = event_data["__interrupt__"][0].value
-                        yield f"data: {json.dumps({'type':'interrupt','payload':payload})}\n\n"
-                        return
-                    if stream_type=="messages":
-                        msg_chunk, _ = event_data
-                        token = msg_chunk.content
-                        full_response += token
-                        if "```json" not in full_response:
-                            yield f"data:{json.dumps({'type': 'token','content':token})}\n\n"      
+                        for node_name, state_diff in event_data.items():
+                            if node_name == "__interrupt__":
+                                payload = state_diff[0].value
+                                yield f"data: {json.dumps({'type':'interrupt','payload':payload})}\n\n"
+                                return
+                            final_state.update(state_diff)
+                    
+                            if node_name == "hallucination_checker_node" and state_diff.get("confidence",0.0)>=CONFIDENCE_THRESHOLD:
+                                answer_text = final_state.get("answer", "").split("```json").strip()
+                                for word in answer_text.split(" "):
+                                    yield f"data:{json.dumps({'type': 'token','content':word})}\n\n"
+                               
+                                # if "```json" not in full_response:
+                                #     yield f"data:{json.dumps({'type': 'token','content':token})}\n\n"      
         except Exception as e:
             yield f"data:{json.dumps({'type':'error','detail': str(e)})}\n\n"
             return
@@ -147,3 +152,55 @@ async def query(request: QueryRequest):
     
     #7.Return the stream to FastAPI
     return StreamingResponse(stream_response(),media_type="text/event-stream")
+
+@app.post("/resume")
+async def resume_query(request:ResumeRequest):
+    thread_id = request.thread_id
+    config = {"configurable":{"thread_id": thread_id}}
+
+    async def stream_resume():
+        final_state ={}
+        try:
+            with get_openai_callback() as cb:
+                async for stream_type, event_data in graph.astream(
+                Command(resume=request.decision),
+                config=config,
+                stream_mode=["updates"]
+                ):
+                    # event_data is a dict like {node_name: state_diff}, one entry per node
+                    # that just finished during this resumed run
+                    for node_name, state_diff in event_data.items():
+                        if node_name == "__interrupt__":
+                            payload = state_diff[0].value
+                            yield f"data:(json.dumps({'type':'interrupt', 'payload':payload}))"
+                            return
+                        final_state.update(state_diff)
+        except Exception as e:
+            yield f"data:{json.dumps({"type":"error","detail": str(e)})}\n\n"
+            return
+        # ---- Below only runs if the resumed graph completed without hitting another interrupt ----
+        final_answer = final_state.get("answer")
+        citations = []
+        # JSON-block extraction logic as in /query -- the model's own output still ends
+        # with a ```json {...}``` block containing citations
+        match = re.search(r"```json\s*(\{.*?\})\s*```", final_answer,re.DOTALL)
+        if match:
+            try:
+                meta = json.loads(match.group(1))
+                citations = meta.get("citations",[])
+            except json.JSONDecodeError as e:
+                logger.info(f"JSON decode error: {e}")
+        
+        final = AnswerSchema(**{
+            "answer" : final_answer.split("```json")[0].strip(),
+            "confidence": final_state.get("confidence",0.0),
+            "citations": citations,
+            "sources": final_state.get("sources",[]),
+            "prompt_tokens": final_state.get("prompt_tokens",0),
+            "completion_tokens": final_state.get("completion_tokens",0),
+            "cost_usd": final_state.get("cost_usd",0)
+        })
+
+        yield f"data:{json.dumps({'type':'final','data':final.model_dump()})}\n\n"
+    
+    return StreamingResponse(stream_resume(),media_type="text/event-stream")

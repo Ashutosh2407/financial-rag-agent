@@ -16,7 +16,8 @@ llm = ChatOpenAI(
         model="gpt-4o-mini",
         api_key=os.environ.get("OPENAI_API_KEY"),
         max_tokens = 4096,
-        temperature=0
+        temperature=0,
+        streaming=False
     )
 
 

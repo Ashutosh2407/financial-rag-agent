@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CONFIDENCE_THRESHOLD = 0.75
+CONFIDENCE_THRESHOLD = 0.99
 
 def build_llm_chain():
     llm = ChatOpenAI(
@@ -48,7 +48,8 @@ def grader_llm_chain():
         model="gpt-4o-mini",
         api_key=os.environ.get("OPENAI_API_KEY"),
         max_tokens = 4096,
-        temperature=0
+        temperature=0,
+        streaming=False
     )
     structured_llm = llm.with_structured_output(GradeDocuments)
     prompt = ChatPromptTemplate.from_messages([(
@@ -197,8 +198,6 @@ def build_graph():
     builder.add_node("hallucination_checker_node", hallucination_check)
     builder.add_node("human_review_node", human_review)
     
-
-
     builder.add_conditional_edges("guardrails_input",
     lambda s: "blocked" if s.get("blocked") else "continue",
     {"blocked": END, "continue":"retriever_node"}

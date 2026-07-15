@@ -19,6 +19,20 @@ if "chat_history" not in st.session_state:
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = str(uuid.uuid4())
 
+if "pending_interrupt" not in st.session_state:
+    st.session_state.pending_interrupt = None
+
+def stream_and_parse(url,payload,stream_box):
+    full_answer = ""
+    full_payload = None
+    interrupt_payload = None
+    buffer = ""
+    with requests.post(url=url,json = payload, stream= True) as response:
+            pass
+
+
+
+
 #RAGAS benchmark------------------------------------
 with st.expander("📈 Ragas Benchmark"):
     df_eval = pd.read_csv("src/eval/results.csv")
@@ -47,8 +61,6 @@ with st.expander("📈 Ragas Benchmark"):
             margin=dict(t=20, b=20)
         )
         st.plotly_chart(fig, use_container_width=True)
-
-    
 
 #Question and Answer
 
