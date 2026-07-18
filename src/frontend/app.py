@@ -118,6 +118,7 @@ with col_chat:
                             except json.JSONDecodeError as e:
                                 print(f"error: {e}")
         if st.session_state.pending_interrupt:
+                    stream_box = st.empty()
                     payload = st.session_state.pending_interrupt
                     with st.chat_message("assistant"):
                         st.warning(f"⚠️ Low confidence ({payload['confidence']:.2f}) — needs your review before this answer is finalized.")
@@ -136,8 +137,56 @@ with col_chat:
                         if st.session_state.get("last_decision"):
                             if st.session_state.last_decision == "approved":
                                 st.markdown("Approved. Query resumed.")
+                                with requests.post(
+                                    url= "http://localhost:8000/resume",
+                                    json = {
+                                        "decision": st.session_state.last_decision,
+                                        "thread_id": st.session_state.thread_id
+                                    }
+                                ) as response:
+                                    for line in response.iter_lines(decode_unicode=True):
+                                        if line.startswith("data:"):
+                                            raw = line[len("data:"):]
+                                            try:
+                                                final_event = json.loads(raw)
+                                                final_payload = final_event["data"]
+                                                answer = final_payload["answer"]
+                                                clean = answer.split("```")[0].strip()
+                                                clean = re.sub(r'`([^`]*)`', r'\1', clean)
+                                                clean = clean.replace("$", r"\$")
+                                                st.markdown(clean)
+                                                st.caption(
+                                                    f"⏱ Confidence: {final_payload['confidence']:.2f}  |  "
+                                                    f"💰 Cost: ${final_payload['cost_usd']:.5f}  |  "
+                                                    f"🔢 Tokens: {final_payload['prompt_tokens']} in / {final_payload['completion_tokens']} out"
+                                                )
+
+                                                #── Build Cited Chunks for Evidence Panel ─────────────────────────
+                                                cited_chunks = []
+                                                for citation in final_payload["citations"]:
+                                                 # Parse the chunk number out of "[Chunk N]"
+                                                    if citation.startswith("[Web"):
+                                                        continue
+                                                    chunk_num = int(citation.replace("[Chunk ","").replace("]",""))
+                                                    match = next((s for s in final_payload['sources'] if s["chunk_id"] == chunk_num), None)
+                                                    if match:
+                                                        cited_chunks.append(match)
+
+                                                #── Evidence Panel ────────────────────────────────────────────────
+                                                with col_evidence:
+                                                    st.subheader("📚 Sources")
+                                                    # Render each cited source with ticker, year, and a text preview
+                                                    for s in cited_chunks:
+                                                        st.markdown(f"**{s['ticker']}** · {s['year'][:4]}")
+                                                        st.caption(s["preview"][:200] + "...")
+                                                        st.divider()
+                                                st.session_state.last_decision = None
+                                            except json.JSONDecodeError as e:
+                                                print(f"Error: {e}")
+                            
                             else:
                                 st.markdown("Rejected. Answer declined.")
+                                st.session_state.last_decision = None
                         
 
 
