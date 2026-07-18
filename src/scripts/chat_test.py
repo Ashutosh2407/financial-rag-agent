@@ -1,4 +1,4 @@
-from src.memory_agent import chat
+from src.langraph.memory_agent import chat
 
 # Turn 1
 r1 = chat("test-session", "What were JPMorgan's risks in 2026?")

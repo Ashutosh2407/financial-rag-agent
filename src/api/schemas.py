@@ -54,3 +54,7 @@ class QueryRequest(BaseModel):
     top_k:int = Field(default=5,ge=1,le=20)
     db:str = "weaviate" #default
     thread_id:str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+class ResumeRequest(BaseModel):
+    thread_id:str
+    decision: str  #approve or reject

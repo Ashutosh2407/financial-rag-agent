@@ -19,6 +19,9 @@ if "chat_history" not in st.session_state:
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = str(uuid.uuid4())
 
+if "pending_interrupt" not in st.session_state:
+    st.session_state.pending_interrupt = None
+
 #RAGAS benchmark------------------------------------
 with st.expander("📈 Ragas Benchmark"):
     df_eval = pd.read_csv("src/eval/results.csv")
@@ -48,8 +51,6 @@ with st.expander("📈 Ragas Benchmark"):
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    
-
 #Question and Answer
 
 prompt = st.chat_input("Ask a question ...",width=915)
@@ -57,6 +58,7 @@ col_chat, col_evidence = st.columns([3,2])
 
 with col_chat:
     db = st.selectbox("Database",["Weaviate", "Pinecone"],width=200)
+    full_answer_text=""
     st.subheader("Chat")
     container_height = min(max(500, len(st.session_state.chat_history) * 100), 900)
     chat_container = st.container(height=container_height)
@@ -70,156 +72,122 @@ with col_chat:
         if prompt:
             st.session_state.chat_history.append({"role":"user", "content":prompt})
             with st.chat_message("user"):
-                st.markdown(prompt)
-
-    
-
-            #── API Call + Streaming ──────────────────────────────────────────────
-            full_payload = None
-
+                st.markdown(prompt)            
             with st.chat_message("assistant"):
-                full_answer = ""
                 stream_box = st.empty()
-
-                buffer = ""
                 with requests.post(
-                    os.environ.get("BASE_API_URL","http://localhost:8000/query"),
-                    json = {
-                        "question": prompt,
-                        "top_k":5,
-                        "db":db.lower(),
-                        "thread_id": st.session_state.thread_id
-                    }, stream= True
-                ) as response:
-                    if response.status_code == 422:
-                        print("Error")
-                        st.error(response.json())
-                        st.stop()
-                    for chunk in response.iter_content(chunk_size=None):
-                        if chunk:
-                            buffer+= chunk.decode("utf-8")
-                            while "\n\n" in buffer:
-                                message, buffer = buffer.split("\n\n",1)
-                                if message.startswith("data:"):
-                                    raw = message[len("data:"):].strip()
-                                    try:
-                                        payload = json.loads(raw)
-                                        if payload.get("type") == "token":
-                                            full_answer+=payload.get("content","")
-                                            stream_box.markdown(full_answer + "▌")
-                                        elif payload.get("type") == "final":
-                                            clean = full_answer.split("```")[0].strip()
-                                            clean = re.sub(r'`([^`]*)`', r'\1', clean)
-                                            clean = clean.replace("$", r"\$")
-                                            stream_box.empty()
-                                            stream_box.markdown(clean)
-                                            full_payload = payload.get("data")
-                                    except json.JSONDecodeError:
-                                        pass
-            if full_answer:
-                # Save the assistant reply to chat_history so it persists on the next rerun.
-                # We store sources too so per-message evidence is available for future use.
-                st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "content": full_payload["answer"],
-                    "sources": full_payload.get("sources", [])
-                })
-            # Show confidence, cost, and token counts below the answer bubble
-            st.caption(
-                f"⏱ Confidence: {full_payload['confidence']:.2f}  |  "
-                f"💰 Cost: ${full_payload['cost_usd']:.5f}  |  "
-                f"🔢 Tokens: {full_payload['prompt_tokens']} in / {full_payload['completion_tokens']} out"
-            )
-
-            # ── Build Cited Chunks for Evidence Panel ─────────────────────────
-            cited_chunks = []
-            for citation in full_payload["citations"]:
-            # Parse the chunk number out of "[Chunk N]"
-                chunk_num = int(citation.replace("[Chunk ","").replace("]",""))
-                match = next((s for s in full_payload['sources'] if s["chunk_id"] == chunk_num), None)
-                if match:
-                    cited_chunks.append(match)
-
-                # ── Evidence Panel ────────────────────────────────────────────────
-                with col_evidence:
-                    st.subheader("📚 Sources")
-                    # Render each cited source with ticker, year, and a text preview
-                    for s in cited_chunks:
-                        st.markdown(f"**{s['ticker']}** · {s['year'][:4]}")
-                        st.caption(s["preview"][:200] + "...")
-                        st.divider()
-
+                        url= os.environ.get("BASE_API_URL","http://localhost:8000/query"),
+                        json = {
+                            "question": prompt,
+                            "top_k":5,
+                            "db":db.lower(),
+                            "thread_id": st.session_state.thread_id
+                        }) as response:
+                    for line in response.iter_lines(decode_unicode=True):
+                        if not line:
+                            continue
+                        if line.startswith("data:"):
+                            raw = line[len("data:"):].strip()
+                            if not raw:
+                                continue
+                            if raw == "[DONE]":
+                                break
+                            try:
+                                event = json.loads(raw)
+                        
+                                if event["type"] == "interrupt":
+                                    st.session_state.pending_interrupt= event.get("payload")
                                     
+                                elif event["type"] == "token":
+                                    full_answer_text+= " " + event.get("content","")
+                                    stream_box.markdown(full_answer_text + "▌")
+                                elif event["type"] == "final":
+                                    # Save the assistant reply to chat_history so it persists on the next rerun.
+                                    # We store sources too so per-message evidence is available for future use.
+                                    clean = full_answer_text.split("```")[0].strip()
+                                    clean = re.sub(r'`([^`]*)`', r'\1', clean)
+                                    clean = clean.replace("$", r"\$")
+                                    stream_box.empty()
+                                    stream_box.markdown(clean)
+                                    final_payload = event.get("data")
+                                    st.session_state.chat_history.append({
+                                        "role": "assistant",
+                                        "content": event.get("answer",""),
+                                        "sources": event.get("sources", [])
+                                    })
+                            except json.JSONDecodeError as e:
+                                print(f"error: {e}")
+        if st.session_state.pending_interrupt:
+                    stream_box = st.empty()
+                    payload = st.session_state.pending_interrupt
+                    with st.chat_message("assistant"):
+                        st.warning(f"⚠️ Low confidence ({payload['confidence']:.2f}) — needs your review before this answer is finalized.")
+                        st.markdown(payload["draft_answer"].split("```")[0].strip().replace("$", r"\$"))
+                        with st.expander("📚 Supporting sources considered"):
+                            for chunk in payload.get("supporting_chunks", []):
+                                st.caption(chunk[:300] + "...")
+                        col1, col2 = st.columns(2)
+                        approve = col1.button("✅ Approve",
+                                            key = f"approve_{st.session_state.thread_id}")
+                        reject = col2.button("❌ Reject",key = f"reject_{st.session_state.thread_id}")
+                        if approve or reject:
+                            decision ="approved" if approve else "rejected"
+                            st.session_state.pending_interrupt = None
+                            st.session_state.last_decision = decision  # persist it
+                        if st.session_state.get("last_decision"):
+                            if st.session_state.last_decision == "approved":
+                                st.markdown("Approved. Query resumed.")
+                                with requests.post(
+                                    url= "http://localhost:8000/resume",
+                                    json = {
+                                        "decision": st.session_state.last_decision,
+                                        "thread_id": st.session_state.thread_id
+                                    }
+                                ) as response:
+                                    for line in response.iter_lines(decode_unicode=True):
+                                        if line.startswith("data:"):
+                                            raw = line[len("data:"):]
+                                            try:
+                                                final_event = json.loads(raw)
+                                                final_payload = final_event["data"]
+                                                answer = final_payload["answer"]
+                                                clean = answer.split("```")[0].strip()
+                                                clean = re.sub(r'`([^`]*)`', r'\1', clean)
+                                                clean = clean.replace("$", r"\$")
+                                                st.markdown(clean)
+                                                st.caption(
+                                                    f"⏱ Confidence: {final_payload['confidence']:.2f}  |  "
+                                                    f"💰 Cost: ${final_payload['cost_usd']:.5f}  |  "
+                                                    f"🔢 Tokens: {final_payload['prompt_tokens']} in / {final_payload['completion_tokens']} out"
+                                                )
+
+                                                #── Build Cited Chunks for Evidence Panel ─────────────────────────
+                                                cited_chunks = []
+                                                for citation in final_payload["citations"]:
+                                                 # Parse the chunk number out of "[Chunk N]"
+                                                    if citation.startswith("[Web"):
+                                                        continue
+                                                    chunk_num = int(citation.replace("[Chunk ","").replace("]",""))
+                                                    match = next((s for s in final_payload['sources'] if s["chunk_id"] == chunk_num), None)
+                                                    if match:
+                                                        cited_chunks.append(match)
+
+                                                #── Evidence Panel ────────────────────────────────────────────────
+                                                with col_evidence:
+                                                    st.subheader("📚 Sources")
+                                                    # Render each cited source with ticker, year, and a text preview
+                                                    for s in cited_chunks:
+                                                        st.markdown(f"**{s['ticker']}** · {s['year'][:4]}")
+                                                        st.caption(s["preview"][:200] + "...")
+                                                        st.divider()
+                                                st.session_state.last_decision = None
+                                            except json.JSONDecodeError as e:
+                                                print(f"Error: {e}")
+                            
+                            else:
+                                st.markdown("Rejected. Answer declined.")
+                                st.session_state.last_decision = None
+                        
 
 
 
-
-
-
-
-
-# question = st.text_input(
-#     label="🔍 Ask a question:",
-#     placeholder="What were JPMorgan's key risk factors in 2025?",
-#     max_chars=200
-# )
-
-# if st.button("Ask") and question:
-#     col_answer, col_evidence = st.columns([2,1])
-#     full_payload = None
-#     with col_answer:
-#         st.subheader("💬 Answer")
-
-#         with requests.post(os.environ.get("BASE_API_URL","http://localhost:8000/query"),
-#                 json={"question": str(question),"top_k":5,"db":db.lower()},
-#                 stream=True
-#             ) as response:
-#             full_answer = ""
-#             stream_box = st.empty()
-#             buffer = ""
-#             for chunk in response.iter_content(chunk_size=None):
-#                 if chunk:
-#                     buffer+= chunk.decode("utf-8")
-#                     while "\n\n" in buffer:
-#                         message, buffer = buffer.split("\n\n",1)
-#                         if message.startswith("data:"):
-#                             raw = message[len("data:"):].strip()
-#                             try:
-#                                 payload = json.loads(raw)
-#                                 if payload.get("type") == "token":
-#                                     full_answer += payload.get("content","")
-#                                     stream_box.markdown(full_answer + "▌")
-#                                 elif payload.get("type") == "final":
-#                                     #print("RAW:", repr(full_answer))                          # see exact characters
-#                                     clean = full_answer.split("```")[0].strip()
-#                                     #print("AFTER SPLIT:", repr(clean))                        # see if split worked
-#                                     clean = re.sub(r'`([^`]*)`', r'\1', clean)
-#                                     #print("AFTER REGEX:", repr(clean))                        # see if regex worked
-#                                     stream_box.empty()
-#                                     clean = clean.replace("$","\$")
-#                                     stream_box.markdown(clean)
-#                                     full_payload = payload.get("data")
-#                             except json.JSONDecodeError as e:
-#                                 pass
-            
-
-#     st.caption(
-#             f"⏱ Confidence: {full_payload['confidence']:.2f}  |  "
-#             f"💰 Cost: ${full_payload['cost_usd']:.5f}  |  "
-#             f"🔢 Tokens: {full_payload['prompt_tokens']} in / {full_payload['completion_tokens']} out"
-#         )
-
-#     cited_chunks = []
-#     for citation in full_payload["citations"]:
-#         chunk_num = int(citation.replace('[Chunk ',"").replace(']',""))
-        
-#         match = next((s for s in full_payload['sources'] if s["chunk_id"]==chunk_num),None)
-#         if match:
-#             cited_chunks.append(match)
-
-#     with col_evidence:
-#         st.subheader("📚 Sources")
-#         for s in cited_chunks:
-#             st.markdown(f"**{s['ticker']}** · {s['year'][:4]}")
-#             st.caption(s["preview"][:200] + "...")
-#             st.divider()

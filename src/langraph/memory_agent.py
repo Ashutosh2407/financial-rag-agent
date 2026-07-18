@@ -1,4 +1,4 @@
-#Defining the state
+#Resolves follow up queries.
 import re
 from typing import Annotated, TypedDict
 from langgraph.graph.message import add_messages

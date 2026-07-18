@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CONFIDENCE_THRESHOLD = 1
+CONFIDENCE_THRESHOLD = 0.99
 
 def build_llm_chain():
     llm = ChatOpenAI(
@@ -48,7 +48,8 @@ def grader_llm_chain():
         model="gpt-4o-mini",
         api_key=os.environ.get("OPENAI_API_KEY"),
         max_tokens = 4096,
-        temperature=0
+        temperature=0,
+        streaming=False
     )
     structured_llm = llm.with_structured_output(GradeDocuments)
     prompt = ChatPromptTemplate.from_messages([(
@@ -103,7 +104,7 @@ def conditional_edge(state: AnswerState)-> str:
         print(f"[ROUTING] grade={score:.2f} → tavily (web search fallback)")
         return "tavily_node"
 
-def guardrail_wrapper(state: AnswerState, mode: Literal["input","output"])-> dict:
+async def guardrail_wrapper(state: AnswerState, mode: Literal["input","output"])-> dict:
     if mode == "input":
         safe,reason = input_guardrail(state["current_query"])
         if not safe:
@@ -177,11 +178,18 @@ def human_review(state:AnswerState)-> Command:
             goto=next_node
         )
 
+async def guardrails_input_node(state: AnswerState)-> dict:
+    return await guardrail_wrapper(state,"input")
+
+async def guardrails_output_node(state:AnswerState)-> dict:
+    return await guardrail_wrapper(state,"output")
+
+
 def build_graph():
     builder = StateGraph(state_schema = AnswerState)
     
-    builder.add_node("guardrails_input", lambda s: guardrail_wrapper(s,"input"))
-    builder.add_node("guardrails_output", lambda s: guardrail_wrapper(s,"output"))
+    builder.add_node("guardrails_input", guardrails_input_node)
+    builder.add_node("guardrails_output", guardrails_output_node)
     builder.add_node("retriever_node", retrieve)
     builder.add_node("grader_node",grader)
     builder.add_node("contextualize_node",contextualize)
@@ -190,8 +198,6 @@ def build_graph():
     builder.add_node("hallucination_checker_node", hallucination_check)
     builder.add_node("human_review_node", human_review)
     
-
-
     builder.add_conditional_edges("guardrails_input",
     lambda s: "blocked" if s.get("blocked") else "continue",
     {"blocked": END, "continue":"retriever_node"}
@@ -213,26 +219,27 @@ def build_graph():
     return builder.compile(checkpointer=MemorySaver())
 
 graph = build_graph()
-config = {
-    "configurable":{
-        "thread_id": "test_run_1"
+if __name__ == "__main__":
+    config = {
+        "configurable":{
+            "thread_id": "test_run_1"
+        }
     }
-}
-result = asyncio.run(
-    graph.ainvoke({"current_query": "When is apple i phone product launch?", 
-                   "retrieved_context": "", 
-                   "answer": [""]},
-                  config=config)
-)
-if "__interrupt__" in result:
-    payload = result["__interrupt__"][0].value  #dict passed to interrupt
-    print("Needs review:", payload)
-    verdict = input("approve? ")
-    final = asyncio.run(
-        graph.ainvoke(
-            Command(resume=verdict),
-            config=config
-        )
+    result = asyncio.run(
+        graph.ainvoke({"current_query": "When is apple i phone product launch?", 
+                    "retrieved_context": "", 
+                    "answer": [""]},
+                    config=config)
     )
-    print("Final answer....\n")
-    print(final["answer"])
+    if "__interrupt__" in result:
+        payload = result["__interrupt__"][0].value  #dict passed to interrupt
+        print("Needs review:", payload)
+        verdict = input("approve? ")
+        final = asyncio.run(
+            graph.ainvoke(
+                Command(resume=verdict),
+                config=config
+            )
+        )
+        print("Final answer....\n")
+        print(final["answer"])
