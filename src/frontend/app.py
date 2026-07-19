@@ -56,6 +56,13 @@ with st.expander("📈 Ragas Benchmark"):
 prompt = st.chat_input("Ask a question ...",width=915)
 col_chat, col_evidence = st.columns([3,2])
 
+def clean_markdown(answer):
+    answer = answer.split("```")[0].strip()
+    answer = re.sub(r'`([^`]*)`', r'\1', answer)
+    answer  = answer.replace("$", r"\$")
+    return answer 
+
+
 with col_chat:
     db = st.selectbox("Database",["Weaviate", "Pinecone"],width=200)
     full_answer_text=""
@@ -66,7 +73,7 @@ with col_chat:
         #History Replay loop----
         for msg in st.session_state.chat_history:
             with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+                st.markdown(clean_markdown(msg["content"]))
 
         #Chat Input-----
         if prompt:
@@ -94,27 +101,24 @@ with col_chat:
                                 break
                             try:
                                 event = json.loads(raw)
-                        
                                 if event["type"] == "interrupt":
-                                    st.session_state.pending_interrupt= event.get("payload")
-                                    
+                                    st.session_state.pending_interrupt= event.get("payload")    
                                 elif event["type"] == "token":
                                     full_answer_text+= " " + event.get("content","")
                                     stream_box.markdown(full_answer_text + "▌")
                                 elif event["type"] == "final":
                                     # Save the assistant reply to chat_history so it persists on the next rerun.
                                     # We store sources too so per-message evidence is available for future use.
-                                    clean = full_answer_text.split("```")[0].strip()
-                                    clean = re.sub(r'`([^`]*)`', r'\1', clean)
-                                    clean = clean.replace("$", r"\$")
+                                    ans = clean_markdown(full_answer_text)
                                     stream_box.empty()
-                                    stream_box.markdown(clean)
+                                    stream_box.markdown(ans)
                                     final_payload = event.get("data")
                                     st.session_state.chat_history.append({
                                         "role": "assistant",
-                                        "content": event.get("answer",""),
-                                        "sources": event.get("sources", [])
+                                        "content": final_payload.get("answer",""),
+                                        "sources": final_payload.get("sources", [])
                                     })
+                                    print(st.session_state.chat_history)
                             except json.JSONDecodeError as e:
                                 print(f"error: {e}")
         if st.session_state.pending_interrupt:
