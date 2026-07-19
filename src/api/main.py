@@ -88,20 +88,19 @@ async def query(request: QueryRequest):
         ]
     
     #3. Generate metadata here 
-    sources = [
-        {
-            "chunk_id": i,
-            "source": doc.metadata.get("source", "?"),
-            "ticker": doc.metadata.get("ticker", "?"),
-            "year": str(doc.metadata.get("year", "?")),
-            "preview": doc.page_content[:200],
-        }
-    for i,doc in enumerate(docs)
-    ]
+    # sources = [
+    #     {
+    #         "chunk_id": i,
+    #         "source": doc.metadata.get("source", "?"),
+    #         "ticker": doc.metadata.get("ticker", "?"),
+    #         "year": str(doc.metadata.get("year", "?")),
+    #         "preview": doc.page_content[:200],
+    #     }
+    # for i,doc in enumerate(docs)
+    # ]
     
     #4. Streaming helper method
     async def stream_response():
-        full_response = ""
         final_state = {}
         try:
             with get_openai_callback() as cb:
@@ -125,8 +124,12 @@ async def query(request: QueryRequest):
         except Exception as e:
             yield f"data:{json.dumps({'type':'error','detail': str(e)})}\n\n"
             return
+        if final_state.get("web_sources"):
+            sources = final_state["web_sources"]
+        else:
+            sources = sources = final_state.get("chunk_sources", [])
         citations = []
-        match = re.search(r"```json\s*(\{.*?\})\s*```", full_response, re.DOTALL)
+        match = re.search(r"```json\s*(\{.*?\})\s*```", final_state.get("answer",""), re.DOTALL)
         if match:
             try:
                 meta = json.loads(match.group(1))
@@ -135,7 +138,7 @@ async def query(request: QueryRequest):
                 logger.info(f"Could not parse metadata: {e}")
         #Step 6: Build the final AnswerSchema and send it as one closing event 
         final = AnswerSchema(**{
-            "answer": final_state.get("answer",full_response.split("```json")[0].strip()),
+            "answer": final_state.get("answer","").split("```json")[0].strip(),
             "confidence": final_state.get("confidence",0),
             "citations": citations,
             "sources": sources,
@@ -182,8 +185,9 @@ async def resume_query(request:ResumeRequest):
         except Exception as e:
             yield f"data:{json.dumps({"type":"error","detail": str(e)})}\n\n"
             return
-        # ---- Below only runs if the resumed graph completed without hitting another interrupt ----
-        final_answer = final_state.get("answer")
+        # Full persisted state — includes what ran before the interrupt
+        full_state = graph.get_state(config).values
+        final_answer = full_state.get("answer")
         citations = []
         # JSON-block extraction logic as in /query -- the model's own output still ends
         # with a ```json {...}``` block containing citations
@@ -195,16 +199,22 @@ async def resume_query(request:ResumeRequest):
             except json.JSONDecodeError as e:
                 logger.info(f"JSON decode error: {e}")
         
+        if full_state.get("web_sources"):
+            sources = full_state["web_sources"]
+        else:
+            sources = full_state.get("chunk_sources", [])
+
         final = AnswerSchema(**{
             "answer" : final_answer.split("```json")[0].strip(),
-            "confidence": final_state.get("confidence",0.0),
+            "confidence": full_state.get("confidence",0.0),
             "citations": citations,
-            "sources": final_state.get("sources",[]),
-            "prompt_tokens": final_state.get("prompt_tokens",0),
-            "completion_tokens": final_state.get("completion_tokens",0),
-            "cost_usd": final_state.get("cost_usd",0)
+            "sources": sources,
+            "prompt_tokens": cb.prompt_tokens,
+            "completion_tokens": cb.completion_tokens,
+            "cost_usd": cb.total_cost
         })
 
         yield f"data:{json.dumps({'type':'final','data':final.model_dump()})}\n\n"
+        yield f"data:[DONE]\n\n"
     
     return StreamingResponse(stream_resume(),media_type="text/event-stream")

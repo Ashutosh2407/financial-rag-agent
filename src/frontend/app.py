@@ -22,6 +22,48 @@ if "thread_id" not in st.session_state:
 if "pending_interrupt" not in st.session_state:
     st.session_state.pending_interrupt = None
 
+def clean_markdown(answer):
+    answer = answer.split("```")[0].strip()
+    answer = re.sub(r'`([^`]*)`', r'\1', answer)
+    answer  = answer.replace("$", r"\$")
+    return answer 
+
+def get_cited_chunks(sources, citations):
+    cited = []
+    for citation in citations or []:
+        m = re.search(r'\d+', citation)
+        if not m:
+            continue
+        idx = int(m.group())
+        match = next(
+            (s for s in sources
+             if (s.get("type") == "web" and s.get("result_id") == idx) or
+                (s.get("type") == "chunk" and s.get("chunk_id") == idx)),
+            None
+        )
+        if match:
+            cited.append(match)
+    return cited
+
+def clean_preview(text: str, limit: int = 200) -> str:
+    text = re.sub(r'[`#*_]', '', text or "")
+    text = re.sub(r'\s+', ' ', text).strip()
+    text = text.replace("$", r"\$")
+    return text[:limit] + ("..." if len(text) > limit else "")
+
+def render_evidence(cited_chunks):
+    with col_evidence:
+        st.subheader("📚 Sources")
+        for s in cited_chunks:
+            with st.container(border=True):
+                if s.get("type") == "web":
+                    st.markdown(f"🌐 **[{s.get('title','Untitled')}]({s.get('url','')})**")
+                else:
+                    st.markdown(f"**{s.get('ticker','?')} · {s.get('year','?')[:4]}**")
+                st.caption(clean_preview(s.get("preview", "")))
+                
+
+
 #RAGAS benchmark------------------------------------
 with st.expander("📈 Ragas Benchmark"):
     df_eval = pd.read_csv("src/eval/results.csv")
@@ -56,11 +98,7 @@ with st.expander("📈 Ragas Benchmark"):
 prompt = st.chat_input("Ask a question ...",width=915)
 col_chat, col_evidence = st.columns([3,2])
 
-def clean_markdown(answer):
-    answer = answer.split("```")[0].strip()
-    answer = re.sub(r'`([^`]*)`', r'\1', answer)
-    answer  = answer.replace("$", r"\$")
-    return answer 
+
 
 
 with col_chat:
@@ -116,9 +154,20 @@ with col_chat:
                                     st.session_state.chat_history.append({
                                         "role": "assistant",
                                         "content": final_payload.get("answer",""),
-                                        "sources": final_payload.get("sources", [])
+                                        "sources": final_payload.get("sources", []),
+                                        "confidence": final_payload.get("confidence", 0),
+                                        "cost_usd": final_payload.get("cost_usd", 0),
+                                        "prompt_tokens": final_payload.get("prompt_tokens", 0),
+                                        "completion_tokens": final_payload.get("completion_tokens", 0),
+                                        "citations": final_payload.get("citations", [])
                                     })
-                                    print(st.session_state.chat_history)
+                                    st.caption(
+                                                    f"⏱ Confidence: {final_payload['confidence']:.2f}  |  "
+                                                    f"💰 Cost: ${final_payload['cost_usd']:.5f}  |  "
+                                                    f"🔢 Tokens: {final_payload['prompt_tokens']} in / {final_payload['completion_tokens']} out"
+                                    )
+                                    cited_chunks = get_cited_chunks(final_payload.get("sources", []), final_payload.get("citations", []))
+                                    render_evidence(cited_chunks)                                    
                             except json.JSONDecodeError as e:
                                 print(f"error: {e}")
         if st.session_state.pending_interrupt:
@@ -164,26 +213,8 @@ with col_chat:
                                                     f"💰 Cost: ${final_payload['cost_usd']:.5f}  |  "
                                                     f"🔢 Tokens: {final_payload['prompt_tokens']} in / {final_payload['completion_tokens']} out"
                                                 )
-
-                                                #── Build Cited Chunks for Evidence Panel ─────────────────────────
-                                                cited_chunks = []
-                                                for citation in final_payload["citations"]:
-                                                 # Parse the chunk number out of "[Chunk N]"
-                                                    if citation.startswith("[Web"):
-                                                        continue
-                                                    chunk_num = int(citation.replace("[Chunk ","").replace("]",""))
-                                                    match = next((s for s in final_payload['sources'] if s["chunk_id"] == chunk_num), None)
-                                                    if match:
-                                                        cited_chunks.append(match)
-
-                                                #── Evidence Panel ────────────────────────────────────────────────
-                                                with col_evidence:
-                                                    st.subheader("📚 Sources")
-                                                    # Render each cited source with ticker, year, and a text preview
-                                                    for s in cited_chunks:
-                                                        st.markdown(f"**{s['ticker']}** · {s['year'][:4]}")
-                                                        st.caption(s["preview"][:200] + "...")
-                                                        st.divider()
+                                                cited_chunks = get_cited_chunks(final_payload.get("sources", []), final_payload.get("citations", []))
+                                                render_evidence(cited_chunks)
                                                 st.session_state.last_decision = None
                                             except json.JSONDecodeError as e:
                                                 print(f"Error: {e}")

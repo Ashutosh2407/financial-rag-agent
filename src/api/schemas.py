@@ -1,13 +1,24 @@
 from pydantic import BaseModel,Field, decorator, field_validator
-from typing import Literal
+from typing import Literal, Union, Annotated
 import uuid
 
-class SourceSchema(BaseModel):
+class ChunkSourceSchema(BaseModel):
+    type: Literal["chunk"] = "chunk"
     chunk_id: int
     source: str
     ticker: str
     year: str
     preview: str
+
+class WebSourceSchema(BaseModel):
+    type: Literal["web"] = "web"
+    result_id: int
+    title: str
+    url: str
+    preview: str
+
+SourceSchema = Annotated[Union[ChunkSourceSchema, WebSourceSchema], Field(discriminator="type")]
+
 
 class AnswerSchema(BaseModel):
     answer:str

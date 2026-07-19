@@ -1,7 +1,7 @@
 import asyncio,os,re
 from langgraph.graph import StateGraph,START,END
 from langgraph.types import Command, interrupt
-from typing import Annotated, TypedDict, List, Literal
+from typing import Annotated, TypedDict, List, Literal, Dict
 from pydantic import BaseModel, Field
 from langchain_core.documents import Document
 from langgraph.checkpoint.memory import MemorySaver
@@ -63,6 +63,8 @@ class AnswerState(TypedDict):
     retrieved_context: str 
     current_query:str
     chunks: List[str]
+    chunk_sources: List[Dict]
+    web_sources: List[Dict]
     grade:float
     confidence: float
     blocked: bool
@@ -74,7 +76,18 @@ def retrieve(state: AnswerState)->dict:
     query = state["current_query"]
     docs = retriever.invoke(query)
     chunks = [d.page_content for d in docs]
-    return {"chunks":chunks}
+    chunk_sources = [
+        {
+            "type": "chunk",
+            "chunk_id": i,
+            "source": d.metadata.get("source", "?"),
+            "ticker": d.metadata.get("ticker", "?"),
+            "year": str(d.metadata.get("year", "?")),
+            "preview": d.page_content[:200],
+        }
+        for i, d in enumerate(docs)
+    ]
+    return {"chunks":chunks,"chunk_sources":chunk_sources}
 
 def contextualize(state: AnswerState)-> dict:
     chunks = state["chunks"]
@@ -129,7 +142,16 @@ def tavily(state: AnswerState)->dict:
     )
     results = tool.invoke({"query": query})
     web_context = "\n\n".join(f"[Web Result {i}] {r['content']}" for i,r in enumerate(results))
-    return {"chunks": [web_context]}
+    web_sources = [
+        {
+            "type": "web",
+            "result_id": i,
+            "title": r.get("title", "Untitled"),
+            "url": r.get("url", ""),
+            "preview": r.get("content", "")[:300]
+        }
+    for i, r in enumerate(results)]
+    return {"chunks": [web_context],"web_sources":web_sources}
 
 async def generator(state: AnswerState)->dict:
     chain = build_llm_chain()
