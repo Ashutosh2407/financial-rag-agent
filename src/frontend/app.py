@@ -57,10 +57,10 @@ def render_evidence(cited_chunks):
         for s in cited_chunks:
             with st.container(border=True):
                 if s.get("type") == "web":
-                    st.markdown(f"🌐 **[{s.get('title','Untitled')}]({s.get('url','')})**")
+                    st.markdown(f"🌐 **[{s.get('title','Untitled')}]({s.get('url','N/A')})**")
                 else:
-                    st.markdown(f"**{s.get('ticker','?')} · {s.get('year','?')[:4]}**")
-                st.caption(clean_preview(s.get("preview", "")))
+                    st.markdown(f"**{s.get('ticker','?')} · {s.get('year','N/A')[:4]}**")
+                st.caption(clean_preview(s.get("preview", "N/A")))
                 
 
 
