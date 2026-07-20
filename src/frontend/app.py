@@ -208,6 +208,16 @@ with col_chat:
                                                 clean = re.sub(r'`([^`]*)`', r'\1', clean)
                                                 clean = clean.replace("$", r"\$")
                                                 st.markdown(clean)
+                                                st.session_state.chat_history.append({
+                                                    "role": "assistant",
+                                                    "content": final_payload.get("answer",""),
+                                                    "sources": final_payload.get("sources", []),
+                                                    "confidence": final_payload.get("confidence", 0),
+                                                    "cost_usd": final_payload.get("cost_usd", 0),
+                                                    "prompt_tokens": final_payload.get("prompt_tokens", 0),
+                                                    "completion_tokens": final_payload.get("completion_tokens", 0),
+                                                    "citations": final_payload.get("citations", [])
+                                                })
                                                 st.caption(
                                                     f"⏱ Confidence: {final_payload['confidence']:.2f}  |  "
                                                     f"💰 Cost: ${final_payload['cost_usd']:.5f}  |  "
