@@ -1,5 +1,5 @@
 # Parsely
-
+Parsely is an AI assistant that answers questions about company financial filings (10-Ks,internal documents and earnings call) instantly, with sources cited — so you don't have to dig through hundreds of pages yourself. It's built and tested to give accurate, trustworthy answers you can verify.
 
 ## Business Problem
 Financial analysts and compliance teams spend hours manually reviewing 10-Ks,
