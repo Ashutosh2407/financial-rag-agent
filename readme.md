@@ -1,4 +1,4 @@
-# financial-rag-agent-aws
+# Parsely
 
 ## Business Problem
 Financial analysts and compliance teams spend hours manually reviewing 10-Ks,
