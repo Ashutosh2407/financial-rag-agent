@@ -1,5 +1,6 @@
 # Parsely
 
+
 ## Business Problem
 Financial analysts and compliance teams spend hours manually reviewing 10-Ks,
 earnings transcripts, and regulatory filings to answer ad-hoc questions.
