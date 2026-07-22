@@ -8,7 +8,7 @@ Answers are inconsistent, slow, and hard to audit. This assistant provides
 grounded, cited answers from a structured corpus of SEC filings.
 
 ## Corpus Description
-- **Sources:** SEC EDGAR 10-K filings.
+- **Sources:** SEC EDGAR 10-K Filings,Earnings Transcripts, Regulatory Filings.
 - **Companies:** 5 financial institutions (Apple, JPMorgan, Goldman Sachs, Microsoft, Tesla).
 - **Filing years:** 2025.
 - **Ingestion:** PyPDFLoader → RecursiveCharacterTextSplitter.
